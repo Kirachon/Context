@@ -416,3 +416,50 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+
+# --- Augment: Python project ignores and machine-specific artifacts ---
+# Environments and secrets (never commit real envs)
+.env
+.env.*
+
+!.env.example
+# Python caches and tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+.python-version
+
+# Build/dist artifacts
+build/
+dist/
+*.egg-info/
+
+# Coverage outputs
+.coverage
+htmlcov/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs, temp, data dumps
+*.log
+tmp/
+data/
+*.sql
+*.sqlite
+in-memoria.db
+
+# Docker/runtime state (volumes, container logs)
+**/volumes/**
+**/docker-data/**

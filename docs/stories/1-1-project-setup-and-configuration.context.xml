@@ -1,0 +1,156 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/context-template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1</storyId>
+    <title>Project Setup and Configuration</title>
+    <status>drafted</status>
+    <generatedAt>2025-10-31</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-1-project-setup-and-configuration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer setting up Context for the first time</asA>
+    <iWant>a simple Docker Compose deployment that works out of the box</iWant>
+    <soThat>I can start using Context immediately without complex configuration</soThat>
+    <tasks>Create infrastructure Docker Compose configuration, Create Context server Docker configuration, Implement health check endpoints, Create project setup scripts and documentation, Implement hardware requirements validation</tasks>
+  </story>
+
+  <acceptanceCriteria>1. Docker Compose file successfully starts all services (Qdrant, Ollama, PostgreSQL, Redis, Context server)
+2. Health check endpoints confirm all services are running correctly
+3. Default configuration works for standard project structures
+4. Documentation provides clear setup instructions for common scenarios
+5. System validates minimum hardware requirements (8GB RAM, 4 CPU cores)</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture-Context-2025-10-31.md</path>
+        <title>Context Architecture Document</title>
+        <section>System Components</section>
+        <snippet>Core Components: 1. MCP Server Layer - FastMCP-based protocol server for Claude Code CLI integration, 2. Code Intelligence Engine - Tree-sitter parsing and semantic analysis, 3. Vector Database - Qdrant for efficient code embedding storage and retrieval, 4. AI Processing Layer - Ollama local LLM inference for prompt enhancement, 5. File System Monitor - Real-time codebase change detection and indexing, 6. Caching Layer - Redis for query optimization and 60%+ hit rate performance targets, 7. Data Persistence - PostgreSQL for metadata and audit logging</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-Context-2025-10-31.md</path>
+        <title>Context Technical Specification</title>
+        <section>Development Environment Setup</section>
+        <snippet>Prerequisites: System Requirements - Operating System: Linux, macOS, or Windows (with WSL2), Python: 3.11 or higher, RAM: Minimum 8GB, recommended 16GB for large codebases, Storage: Minimum 10GB free space, CPU: 4+ cores recommended, External Dependencies: Docker: 24.0+ for containerized services, Ollama: 0.1.0+ for local LLM inference, Git: For version control integration</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-Context-2025-10-31.md</path>
+        <title>Context Technical Specification</title>
+        <section>Development Deployment</section>
+        <snippet>Docker Compose Configuration: version: '3.8', services: context-server, postgres, redis, qdrant with health checks, volume persistence, and environment variables for development</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-Context-2025-10-31.md</path>
+        <title>Context Technical Specification</title>
+        <section>Implementation Stack</section>
+        <snippet>Core Technologies: Component: MCP Server, Technology: FastMCP, Version: 1.0+, Purpose: Claude Code CLI integration. Component: Vector Database, Technology: Qdrant, Version: 1.7+, Purpose: Semantic search storage. Component: Local LLM, Technology: Ollama, Version: 0.1.0+, Purpose: AI inference. Component: Caching, Technology: Redis, Version: 7.2+, Purpose: Query performance optimization</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Context Product Requirements Document</title>
+        <section>Journey 1: Enterprise Developer - Code Discovery and Enhancement</section>
+        <snippet>Initial Setup (One-time): Developer receives Context deployment package from IT security team, Installs Docker Compose environment on approved development machine, Verifies air-gapped deployment works in isolated network, Configures Context for specific project repository</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>deployment/docker/docker-compose.yml</path>
+        <kind>infrastructure</kind>
+        <symbol>services</symbol>
+        <reason>Main development environment configuration defining all required services</reason>
+      </artifact>
+      <artifact>
+        <path>deployment/docker/Dockerfile.dev</path>
+        <kind>container</kind>
+        <symbol>context-server</symbol>
+        <reason>Development Docker container for Context server with hot reload</reason>
+      </artifact>
+      <artifact>
+        <path>src/mcp_server/server.py</path>
+        <kind>application</kind>
+        <symbol>FastMCP</symbol>
+        <lines>1-50</lines>
+        <reason>Core MCP server implementation for Claude Code CLI integration</reason>
+      </artifact>
+      <artifact>
+        <path>src/config/settings.py</path>
+        <kind>configuration</kind>
+        <symbol>Settings</symbol>
+        <reason>Application settings and environment configuration management</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="fastapi" version="0.104+">MCP server web framework</package>
+        <package name="uvicorn" version="0.24+">ASGI server for development</package>
+        <package name="pydantic-settings" version="2.0+">Configuration management</package>
+        <package name="python-multipart" version="0.0.6+">Form data handling</package>
+        <package name="qdrant-client" version="1.7+">Vector database client</package>
+        <package name="psycopg2-binary" version="2.9+">PostgreSQL adapter</package>
+        <package name="redis" version="4.5+">Redis client</package>
+        <package name="pytest" version="7.4+">Testing framework</package>
+        <package name="httpx" version="0.25+">HTTP client for testing</package>
+      </python>
+      <docker>
+        <service name="qdrant" version="v1.7.0">Vector database for semantic search</service>
+        <service name="postgres" version="15">Metadata and persistence database</service>
+        <service name="redis" version="7.2-alpine">Caching and session management</service>
+        <service name="ollama" version="0.1.0">Local LLM inference service</service>
+      </docker>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Must follow microservices architecture pattern with service isolation
+    - All services must be 100% local with no external dependencies
+    - Docker Compose must work out-of-the-box with default configuration
+    - Health check endpoints must be implemented for all services
+    - Volume persistence required for data survival across container restarts
+    - Development environment must support hot reload for rapid iteration
+    - Network configuration must allow service discovery and communication
+    - Environment variables must be configurable through .env files
+    - Minimum hardware requirements: 8GB RAM, 4 CPU cores
+    - Security constraints: No external API calls, local-only operation
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Context Server Health Check</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /health</signature>
+      <path>src/mcp_server/server.py</path>
+    </interface>
+    <interface>
+      <name>Service Dependencies</name>
+      <kind>Docker Compose</kind>
+      <signature>depends_on: [postgres, redis, qdrant, ollama]</signature>
+      <path>deployment/docker/docker-compose.yml</path>
+    </interface>
+    <interface>
+      <name>Environment Configuration</name>
+      <kind>Configuration</kind>
+      <signature>DATABASE_URL, REDIS_URL, QDRANT_HOST, OLLAMA_BASE_URL</signature>
+      <path>src/config/settings.py</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>pytest framework with unit, integration, and performance tests. Minimum 80% code coverage requirement. Test structure: tests/unit/ for component testing, tests/integration/ for service integration, tests/performance/ for load testing. Use fixtures for consistent test data and mock external services.</standards>
+    <locations>
+      <directory>tests/unit/</directory>
+      <directory>tests/integration/</directory>
+      <directory>tests/performance/</directory>
+      <file>tests/conftest.py</file>
+    </locations>
+    <ideas>
+      <test idea="Docker Compose service startup" ac="1">Verify all services start successfully and are accessible</test>
+      <test idea="Health endpoint validation" ac="2">Test health check endpoints return correct status for all services</test>
+      <test idea="Configuration validation" ac="3">Ensure default configuration works without customization</test>
+      <test idea="Documentation completeness" ac="4">Validate setup instructions are clear and accurate</test>
+      <test idea="Hardware requirement validation" ac="5">Test system resource checking and validation logic</test>
+    </ideas>
+  </tests>
+</story-context>
