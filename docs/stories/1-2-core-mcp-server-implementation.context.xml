@@ -1,0 +1,198 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.2</storyId>
+    <title>Core MCP Server Implementation</title>
+    <status>drafted</status>
+    <generatedAt>2025-10-31</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-2-core-mcp-server-implementation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer using Claude Code CLI</asA>
+    <iWant>Context to register as an MCP server with basic tool endpoints</iWant>
+    <soThat>I can integrate Context into my existing development workflow</soThat>
+    <tasks>
+      - Implement FastMCP server registration and initialization (AC: 1)
+      - Implement basic MCP tool endpoints (AC: 2)
+      - Implement connection lifecycle management (AC: 3)
+      - Add comprehensive logging for MCP operations (AC: 4)
+      - Implement graceful shutdown and restart handling (AC: 5)
+      - Write comprehensive tests for MCP server functionality (All ACs)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">FastMCP server successfully starts and registers with Claude Code CLI</criterion>
+    <criterion id="2">Basic health check endpoint returns server status and capabilities</criterion>
+    <criterion id="3">Server handles connection lifecycle properly (connect, disconnect, error handling)</criterion>
+    <criterion id="4">Basic logging shows server operations and connection status</criterion>
+    <criterion id="5">Server gracefully handles shutdown and restart scenarios</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/architecture-Context-2025-10-31.md" section="AD-003: MCP Protocol Integration">
+        <title>MCP Protocol Integration Architectural Decision</title>
+        <snippet>Decision to use FastMCP server implementation for Claude Code CLI integration. Provides standardized protocol for AI tool integration, leverages existing Claude Code CLI ecosystem, enables future extensibility. MCP protocol chosen for reduced development complexity and alignment with industry trends.</snippet>
+      </doc>
+      <doc path="docs/architecture-Context-2025-10-31.md" section="System Components">
+        <title>MCP Server Layer Component</title>
+        <snippet>FastMCP-based protocol server for Claude Code CLI integration. Primary interface for AI-assisted development workflows. Handles tool registration, connection lifecycle, and request routing.</snippet>
+      </doc>
+      <doc path="docs/PRD.md" section="FR004: MCP protocol server integration">
+        <title>MCP Protocol Server Requirement</title>
+        <snippet>MCP protocol server integration with Claude Code CLI providing seamless AI assistance workflow. Required for developer-first CLI integration and extensibility to other AI assistants.</snippet>
+      </doc>
+      <doc path="docs/tech-spec-Context-2025-10-31.md" section="Component 1: MCP Server">
+        <title>MCP Server Technical Specification</title>
+        <snippet>FastMCP implementation with tool registration, connection management, error handling. Server metadata configuration (name, version, capabilities). Integration with FastAPI application for unified server deployment.</snippet>
+      </doc>
+      <doc path="docs/epics.md" section="Story 1.2: Core MCP Server Implementation">
+        <title>Epic Story Definition</title>
+        <snippet>Implement core MCP server with FastMCP framework, tool endpoints, connection lifecycle management, logging, and graceful shutdown capabilities. Foundation for all MCP-based AI interactions.</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <file path="src/mcp_server/server.py" kind="fastapi-application" symbol="app" lines="24-30">
+        <reason>Existing FastAPI application - MCP server will integrate with this to provide unified server deployment</reason>
+      </file>
+      <file path="src/mcp_server/server.py" kind="health-endpoint" symbol="health_check" lines="43-66">
+        <reason>Existing health check endpoint - extend to include MCP-specific status (AC #2)</reason>
+      </file>
+      <file path="src/mcp_server/server.py" kind="service-checking" symbol="check_services" lines="69-106">
+        <reason>Service health checking function - pattern to follow for MCP server status validation</reason>
+      </file>
+      <file path="src/config/settings.py" kind="configuration" symbol="Settings" lines="12-71">
+        <reason>Pydantic Settings class - add MCP server configuration parameters (host, port, capabilities)</reason>
+      </file>
+      <file path="tests/unit/test_server.py" kind="unit-tests" symbol="test_health_endpoint_structure" lines="30-60">
+        <reason>Testing patterns for endpoint structure validation - follow for MCP tool endpoint tests</reason>
+      </file>
+      <file path="deployment/docker/docker-compose.yml" kind="infrastructure" symbol="context-server" lines="37-55">
+        <reason>Context Server container configuration - MCP server runs in this existing container</reason>
+      </file>
+      <file path=".env.example" kind="configuration-template" symbol="SERVER_CONFIGURATION" lines="29-33">
+        <reason>Environment variable template - add MCP-specific configuration options</reason>
+      </file>
+    </code>
+
+    <dependencies>
+      <python>
+        <package name="fastapi" version=">=0.104.0">Core web framework - already installed</package>
+        <package name="uvicorn" version=">=0.24.0">ASGI server - already installed</package>
+        <package name="pydantic" version=">=2.0.0">Data validation - already installed</package>
+        <package name="pydantic-settings" version=">=2.0.0">Settings management - already installed</package>
+        <package name="fastmcp" version="latest">FastMCP framework - TO BE ADDED</package>
+      </python>
+      <python-dev>
+        <package name="pytest" version=">=7.4.0">Testing framework - already installed</package>
+        <package name="pytest-asyncio" version=">=0.21.0">Async testing support - already installed</package>
+      </python-dev>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>MUST integrate with existing FastAPI application in src/mcp_server/server.py - do not create separate server</constraint>
+    <constraint>MUST use Pydantic Settings pattern from src/config/settings.py for all MCP configuration</constraint>
+    <constraint>MUST follow pytest testing patterns established in tests/unit/test_server.py with asyncio support</constraint>
+    <constraint>MUST run in existing Context Server Docker container - no new container required</constraint>
+    <constraint>MUST use FastMCP framework - do not implement MCP protocol from scratch</constraint>
+    <constraint>MUST implement structured logging using existing configuration - add MCP-specific log categories</constraint>
+    <constraint>MUST handle SIGTERM and SIGINT signals for graceful shutdown (AC #5)</constraint>
+    <constraint>MUST maintain connection state for reconnection scenarios (AC #3)</constraint>
+    <constraint>MUST extend existing /health endpoint to include MCP status (AC #2)</constraint>
+    <constraint>Follow 100% local-first architecture - no external API calls or cloud dependencies</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="FastMCP Tool Endpoints" kind="mcp-tools">
+      <signature>
+        @mcp.tool()
+        async def health_check() -> HealthStatus:
+            """Return server health status and capabilities"""
+            return HealthStatus(...)
+      </signature>
+      <path>src/mcp_server/tools/health.py</path>
+      <description>MCP tool endpoints using FastMCP decorators - primary interface for Claude Code CLI</description>
+    </interface>
+    <interface name="MCP Server Registration" kind="server-lifecycle">
+      <signature>
+        mcp = FastMCP("Context", version="0.1.0")
+        mcp.register_tool(health_check)
+        mcp.start()
+      </signature>
+      <path>src/mcp_server/mcp_app.py</path>
+      <description>FastMCP server initialization and tool registration with Claude Code CLI</description>
+    </interface>
+    <interface name="FastAPI Health Endpoint" kind="rest-endpoint">
+      <signature>
+        @app.get("/health", response_model=HealthResponse)
+        async def health_check() -> HealthResponse
+      </signature>
+      <path>src/mcp_server/server.py</path>
+      <description>Existing FastAPI health endpoint - extend to include MCP server status</description>
+    </interface>
+    <interface name="Pydantic Settings" kind="configuration">
+      <signature>
+        class Settings(BaseSettings):
+            mcp_enabled: bool = True
+            mcp_server_name: str = "Context"
+            mcp_capabilities: List[str] = [...]
+      </signature>
+      <path>src/config/settings.py</path>
+      <description>Configuration management for MCP server parameters</description>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Follow pytest testing patterns established in Story 1.1:
+      - Unit tests with pytest and pytest-asyncio for async function testing
+      - TestClient from fastapi.testclient for endpoint testing
+      - Fixtures for test setup (client fixture, mock_env fixture)
+      - Structured test naming: test_<component>_<scenario>
+      - Assertions on response structure, status codes, and data validation
+      - Mock environment variables using os.environ manipulation
+      - Test coverage >80% for critical paths (MCP registration, tool endpoints, lifecycle)
+    </standards>
+    <locations>
+      tests/unit/test_mcp_server.py - MCP server initialization and tool endpoint unit tests
+      tests/integration/test_mcp_integration.py - Claude Code CLI integration tests (full lifecycle)
+      tests/unit/test_server.py - Extend existing tests for updated health endpoint
+    </locations>
+    <ideas>
+      <test criterion="1">
+        - test_mcp_server_initialization: Verify FastMCP server starts successfully
+        - test_mcp_server_registration: Verify server registers with Claude Code CLI
+        - test_mcp_server_metadata: Verify name, version, capabilities configured correctly
+      </test>
+      <test criterion="2">
+        - test_health_tool_endpoint: Verify health check tool returns proper MCP response
+        - test_capabilities_endpoint: Verify capabilities listing includes all registered tools
+        - test_health_endpoint_includes_mcp_status: Verify FastAPI /health includes MCP status
+      </test>
+      <test criterion="3">
+        - test_connection_lifecycle_connect: Verify server handles connect event properly
+        - test_connection_lifecycle_disconnect: Verify graceful disconnect with cleanup
+        - test_connection_error_handling: Verify connection failures logged and recovered
+        - test_reconnection_logic: Verify transient failure reconnection works
+      </test>
+      <test criterion="4">
+        - test_startup_logging: Verify server startup events logged
+        - test_tool_invocation_logging: Verify all tool calls logged with parameters
+        - test_lifecycle_event_logging: Verify connect/disconnect events logged
+        - test_log_level_configuration: Verify log levels configurable via settings
+      </test>
+      <test criterion="5">
+        - test_sigterm_graceful_shutdown: Verify SIGTERM signal triggers cleanup
+        - test_sigint_graceful_shutdown: Verify SIGINT signal triggers cleanup
+        - test_resource_cleanup_on_shutdown: Verify connections/file handles cleaned up
+        - test_shutdown_timeout: Verify force-kill fallback after timeout
+        - test_restart_without_data_loss: Verify server can restart cleanly
+      </test>
+    </ideas>
+  </tests>
+</story-context>

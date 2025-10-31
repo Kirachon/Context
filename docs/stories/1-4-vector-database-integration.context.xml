@@ -1,0 +1,215 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.4</storyId>
+    <title>Vector Database Integration</title>
+    <status>drafted</status>
+    <generatedAt>2025-10-31</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-4-vector-database-integration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer searching for code patterns</asA>
+    <iWant>Context to store and retrieve code embeddings efficiently</iWant>
+    <soThat>semantic search functionality works reliably at scale</soThat>
+    <tasks>
+      - Configure Qdrant vector database connection (AC: 1)
+      - Implement vector embedding generation (AC: 2)
+      - Implement vector storage operations (AC: 3)
+      - Implement collection management (AC: 4)
+      - Add database health monitoring (AC: 5)
+      - Write comprehensive tests for vector database operations (All ACs)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Qdrant vector database is properly configured and connected</criterion>
+    <criterion id="2">Basic vector embeddings are generated for indexed code files</criterion>
+    <criterion id="3">Vector storage and retrieval operations complete successfully</criterion>
+    <criterion id="4">Basic collection management handles different codebases</criterion>
+    <criterion id="5">Database health monitoring confirms proper operation</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/architecture-Context-2025-10-31.md" section="Component 3: Vector Database">
+        <title>Vector Database Component</title>
+        <snippet>Qdrant vector database for semantic code search. Technology: Qdrant v1.7.0. Responsibilities: Vector storage and retrieval, similarity search, collection management, performance optimization. Key Features: Efficient vector operations, scalable storage.</snippet>
+      </doc>
+      <doc path="docs/architecture-Context-2025-10-31.md" section="AD-004: Qdrant Vector Database">
+        <title>Qdrant Selection Decision</title>
+        <snippet>Selected Qdrant for vector database due to: High performance, Rust-based implementation, Rich filtering capabilities, Active development, Docker support. Configuration: Host localhost:6333, Collection per codebase strategy.</snippet>
+      </doc>
+      <doc path="docs/architecture-Context-2025-10-31.md" section="Indexing Flow Step 3">
+        <title>Embedding Generation in Indexing Flow</title>
+        <snippet>3. Embedding Generation: sentence-transformers generates code embeddings, embeddings stored in Qdrant vector database, metadata links vectors to source files.</snippet>
+      </doc>
+      <doc path="deployment/docker/docker-compose.yml" section="qdrant service">
+        <title>Qdrant Docker Configuration</title>
+        <snippet>Qdrant service running on port 6333 (REST API) and 6334 (gRPC). Volume mounted for data persistence.</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <file path="src/config/settings.py" kind="configuration" symbol="Settings" lines="62-64">
+        <reason>Existing Qdrant configuration (qdrant_host, qdrant_port, qdrant_api_key) - use these settings</reason>
+      </file>
+      <file path="src/indexing/file_indexer.py" kind="indexer" symbol="FileIndexer.index_file" lines="119-166">
+        <reason>File indexing logic - extend to generate embeddings after metadata extraction</reason>
+      </file>
+      <file path="src/indexing/queue.py" kind="queue" symbol="IndexingQueue._process_item" lines="100-150">
+        <reason>Queue processing logic - add vector storage after file indexing</reason>
+      </file>
+      <file path="src/mcp_server/server.py" kind="fastapi-application" symbol="app" lines="32-38">
+        <reason>FastAPI application - add /vector/status endpoint here</reason>
+      </file>
+      <file path="src/mcp_server/server.py" kind="health-endpoint" symbol="health_check" lines="103-136">
+        <reason>Health check endpoint - extend to include Qdrant status</reason>
+      </file>
+      <file path="src/mcp_server/tools/indexing.py" kind="mcp-tools" symbol="register_indexing_tools" lines="22-170">
+        <reason>MCP tool registration pattern - follow for vector tools</reason>
+      </file>
+    </code>
+
+    <dependencies>
+      <python>
+        <package name="qdrant-client" version=">=1.7.0">Qdrant Python client library - TO BE ADDED</package>
+        <package name="sentence-transformers" version=">=2.2.0">Embedding generation library - TO BE ADDED</package>
+        <package name="torch" version=">=2.0.0">PyTorch for sentence-transformers - TO BE ADDED</package>
+        <package name="numpy" version=">=1.24.0">Numerical operations for embeddings - TO BE ADDED</package>
+        <package name="fastapi" version=">=0.104.0">Core web framework - already installed</package>
+        <package name="pydantic" version=">=2.0.0">Data validation - already installed</package>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>MUST use Qdrant v1.7.0 as specified in architecture (AD-004)</constraint>
+    <constraint>MUST integrate with existing file indexing pipeline in src/indexing/</constraint>
+    <constraint>MUST use sentence-transformers for embedding generation</constraint>
+    <constraint>MUST implement collection per codebase strategy</constraint>
+    <constraint>MUST extend existing /health endpoint to include Qdrant status</constraint>
+    <constraint>MUST follow async/await patterns established in previous stories</constraint>
+    <constraint>MUST achieve <200ms p99 latency for vector search operations</constraint>
+    <constraint>MUST use existing Qdrant Docker service (localhost:6333)</constraint>
+    <constraint>MUST handle connection failures gracefully with retry logic</constraint>
+    <constraint>Follow 100% local-first architecture - no external API calls</constraint>
+    <constraint>MUST use existing settings from src/config/settings.py</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="Qdrant Client Service" kind="service">
+      <signature>
+        class QdrantClient:
+            def __init__(self, host: str, port: int, api_key: Optional[str])
+            async def connect(self) -> bool
+            async def disconnect(self) -> None
+            async def health_check(self) -> dict
+            def get_client(self) -> QdrantClient
+      </signature>
+      <path>src/vector_db/qdrant_client.py</path>
+      <description>Qdrant connection management with health checks and retry logic</description>
+    </interface>
+    <interface name="Embedding Service" kind="service">
+      <signature>
+        class EmbeddingService:
+            def __init__(self, model_name: str)
+            async def generate_embedding(self, text: str) -> List[float]
+            async def generate_batch_embeddings(self, texts: List[str]) -> List[List[float]]
+            def chunk_text(self, text: str, max_length: int) -> List[str]
+      </signature>
+      <path>src/vector_db/embeddings.py</path>
+      <description>Embedding generation using sentence-transformers</description>
+    </interface>
+    <interface name="Vector Store Service" kind="service">
+      <signature>
+        class VectorStore:
+            async def upsert_vector(self, id: str, vector: List[float], payload: dict) -> bool
+            async def upsert_batch(self, vectors: List[dict]) -> bool
+            async def search(self, query_vector: List[float], limit: int) -> List[dict]
+            async def delete_vector(self, id: str) -> bool
+      </signature>
+      <path>src/vector_db/vector_store.py</path>
+      <description>Vector storage and retrieval operations</description>
+    </interface>
+    <interface name="Collection Manager" kind="service">
+      <signature>
+        class CollectionManager:
+            async def create_collection(self, name: str, vector_size: int) -> bool
+            async def delete_collection(self, name: str) -> bool
+            async def list_collections(self) -> List[str]
+            async def get_collection_stats(self, name: str) -> dict
+      </signature>
+      <path>src/vector_db/collections.py</path>
+      <description>Qdrant collection management</description>
+    </interface>
+    <interface name="Vector Status Endpoint" kind="rest-endpoint">
+      <signature>
+        @app.get("/vector/status", response_model=VectorStatusResponse)
+        async def vector_status() -> VectorStatusResponse
+      </signature>
+      <path>src/mcp_server/server.py</path>
+      <description>FastAPI endpoint for vector database status and statistics</description>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Follow pytest testing patterns established in Stories 1.2 and 1.3:
+      - Unit tests with pytest and pytest-asyncio
+      - Mock external dependencies (Qdrant client, embedding models)
+      - TestClient for endpoint testing
+      - Fixtures for test setup (qdrant_client fixture, embedding_service fixture)
+      - Test coverage >80% for critical paths
+      - Integration tests with actual Qdrant instance (Docker)
+      - Performance tests for vector operations
+    </standards>
+    <locations>
+      tests/unit/test_qdrant_client.py - Qdrant client connection and health check tests
+      tests/unit/test_embeddings.py - Embedding generation and chunking tests
+      tests/unit/test_vector_store.py - Vector storage and retrieval tests
+      tests/unit/test_collections.py - Collection management tests
+      tests/integration/test_vector_workflow.py - End-to-end vector workflow tests
+      tests/unit/test_server.py - Extend for /vector/status endpoint tests
+    </locations>
+    <ideas>
+      <test criterion="1">
+        - test_qdrant_connection_success: Verify successful connection to Qdrant
+        - test_qdrant_connection_retry: Verify retry logic on connection failure
+        - test_qdrant_health_check: Verify health check returns correct status
+        - test_qdrant_configuration: Verify settings are loaded correctly
+        - test_connection_in_health_endpoint: Verify /health includes Qdrant status
+      </test>
+      <test criterion="2">
+        - test_generate_embedding_success: Verify embedding generation for code text
+        - test_embedding_dimensions: Verify embedding vector has correct dimensions
+        - test_batch_embedding_generation: Verify batch processing works
+        - test_text_chunking: Verify large files are chunked correctly
+        - test_embedding_caching: Verify embeddings are cached for performance
+      </test>
+      <test criterion="3">
+        - test_upsert_vector_success: Verify vector upsert operation
+        - test_batch_upsert: Verify batch upsert for multiple vectors
+        - test_vector_search: Verify similarity search returns relevant results
+        - test_delete_vector: Verify vector deletion works
+        - test_search_performance: Verify search latency <200ms
+      </test>
+      <test criterion="4">
+        - test_create_collection: Verify collection creation
+        - test_delete_collection: Verify collection deletion
+        - test_list_collections: Verify collection listing
+        - test_collection_stats: Verify statistics retrieval
+        - test_collection_per_codebase: Verify multi-codebase support
+      </test>
+      <test criterion="5">
+        - test_vector_status_endpoint: Verify /vector/status returns correct structure
+        - test_collection_statistics: Verify collection stats in status
+        - test_vector_count_tracking: Verify vector count is accurate
+        - test_performance_metrics: Verify latency and throughput metrics
+        - test_health_endpoint_includes_qdrant: Verify /health includes Qdrant
+      </test>
+    </ideas>
+  </tests>
+</story-context>
+
