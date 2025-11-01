@@ -5,7 +5,7 @@ Core semantic search functionality using vector embeddings.
 """
 
 import asyncio
-import logging
+from src.logging.manager import get_logger
 import os
 import sys
 import time
@@ -23,7 +23,7 @@ from src.vector_db.embeddings import generate_embedding
 from src.vector_db.vector_store import search_vectors
 from src.indexing.models import get_file_metadata
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SemanticSearchService:

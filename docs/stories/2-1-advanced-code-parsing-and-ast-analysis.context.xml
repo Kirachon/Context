@@ -1,0 +1,140 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>1</storyId>
+    <title>Advanced Code Parsing and AST Analysis</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-01</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/2-1-advanced-code-parsing-and-ast-analysis.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a developer working with complex code structures</asA>
+    <iWant>Context to understand code syntax, structure, and relationships</iWant>
+    <soThat>search results are more accurate and contextually relevant</soThat>
+    <tasks>
+      <task id="1" ac="1">
+        <title>Integrate Tree-sitter for multi-language parsing</title>
+        <subtasks>
+          <subtask>Install tree-sitter Python bindings (v0.25+) for all 7 languages</subtask>
+          <subtask>Create parser factory that handles language detection</subtask>
+          <subtask>Implement AST extraction for Python using updated v0.25 API</subtask>
+          <subtask>Implement AST extraction for JavaScript/TypeScript</subtask>
+          <subtask>Implement AST extraction for Java, C++, Go, Rust</subtask>
+          <subtask>Create unified AST representation across languages</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="2">
+        <title>Build code structure analysis</title>
+        <subtasks>
+          <subtask>Implement function definition extraction</subtask>
+          <subtask>Implement class definition extraction</subtask>
+          <subtask>Implement import/dependency extraction</subtask>
+          <subtask>Build symbol table for identifiers</subtask>
+          <subtask>Create relationship mapping (function calls, inheritance)</subtask>
+          <subtask>Extract method signatures and parameters</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="5">
+        <title>Implement AST storage in Qdrant</title>
+        <subtasks>
+          <subtask>Design Qdrant schema for AST metadata payload</subtask>
+          <subtask>Implement AST serialization to JSON format</subtask>
+          <subtask>Create collection initialization for AST storage</subtask>
+          <subtask>Build indexing pipeline integrating AST data</subtask>
+          <subtask>Implement incremental AST updates for file changes</subtask>
+          <subtask>Add AST metadata to existing vector embeddings</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="3">
+        <title>Add syntax highlighting and formatting</title>
+        <subtasks>
+          <subtask>Integrate Pygments for syntax highlighting</subtask>
+          <subtask>Preserve code structure in search results</subtask>
+          <subtask>Format code snippets for terminal display</subtask>
+          <subtask>Add line number annotations</subtask>
+          <subtask>Handle multi-line code context properly</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="4">
+        <title>Implement cross-language pattern detection</title>
+        <subtasks>
+          <subtask>Define common AST patterns (loops, conditionals, error handling)</subtask>
+          <subtask>Build pattern matching engine using tree-sitter queries</subtask>
+          <subtask>Implement similarity detection across languages</subtask>
+          <subtask>Create pattern library for common structures</subtask>
+          <subtask>Test pattern recognition across all 7 languages</subtask>
+        </subtasks>
+      </task>
+      <task id="6" ac="all">
+        <title>Comprehensive testing</title>
+        <subtasks>
+          <subtask>Unit tests for each language parser (Python, JS/TS, Java, C++, Go, Rust)</subtask>
+          <subtask>Unit tests for AST extraction and structure analysis</subtask>
+          <subtask>Integration tests for complete parsing pipeline</subtask>
+          <subtask>Integration tests for AST storage in Qdrant</subtask>
+          <subtask>Test cross-language pattern detection</subtask>
+          <subtask>Test AST updates on file changes</subtask>
+          <subtask>Validate parse success rate >95% on test corpus</subtask>
+          <subtask>Verify symbol extraction accuracy >98% on test corpus</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Tree-sitter parsing generates comprehensive ASTs for all supported languages (Python, JavaScript, TypeScript, Java, C++, Go, Rust)</criterion>
+    <criterion id="2">Code structure analysis identifies functions, classes, imports, and relationships</criterion>
+    <criterion id="3">Syntax highlighting and formatting preserves code readability</criterion>
+    <criterion id="4">Cross-language understanding identifies similar patterns across different languages</criterion>
+    <criterion id="5">AST metadata is stored in Qdrant for advanced search and analysis</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/research-spike-epic2-2025-11-01.md</path>
+        <title>Research Spike: Epic 2 Preparation</title>
+        <section>Tree-sitter AST Pattern Matching Evaluation</section>
+        <snippet>Tree-sitter v0.25.x API change documented. New API: Parser(Language(tree_sitter_python.language())). All 7 language parsers installed and validated. Expected performance: 5-20ms per file, accuracy >99%.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/parsing/parser.py</path>
+        <kind>parser</kind>
+        <symbol>CodeParser</symbol>
+        <lines>24-39</lines>
+        <reason>Existing tree-sitter parser with language initialization. MUST BE ENHANCED with v0.25 API and comprehensive AST extraction for all 7 languages.</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <dependencies>
+    <dependency>tree-sitter v0.25.2 (all 7 languages)</dependency>
+    <dependency>Qdrant vector database</dependency>
+    <dependency>Redis cache</dependency>
+    <dependency>Pygments for syntax highlighting</dependency>
+  </dependencies>
+
+  <constraints>
+    <constraint>tree-sitter v0.25 API requirement</constraint>
+    <constraint>Performance targets (1000+ fpm, >95% parse rate, >98% symbol accuracy)</constraint>
+    <constraint>Caching requirement</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>CodeParser.parse()</interface>
+    <interface>FileIndexer.index_file()</interface>
+    <interface>Qdrant payload schema</interface>
+    <interface>ParseResult model</interface>
+    <interface>BenchmarkSuite</interface>
+  </interfaces>
+
+  <testIdeas>
+    <test>Unit tests for each language parser</test>
+    <test>Integration tests for parsing pipeline</test>
+    <test>Performance tests for throughput validation</test>
+  </testIdeas>
+</story-context>
