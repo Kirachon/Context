@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <story id="3.1" title="Ollama Integration and Local LLM Management">
+    <status>ready-for-dev</status>
+    <epic>Epic 3: Context Enhancement & Prompt Processing</epic>
+    <priority>high</priority>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Ollama client integration connects to local Ollama service</criterion>
+    <criterion id="2">Model management supports downloading, loading, and switching between models</criterion>
+    <criterion id="3">Health monitoring ensures Ollama service availability and model readiness</criterion>
+    <criterion id="4">Configuration allows customizing model selection and inference parameters</criterion>
+    <criterion id="5">Error handling gracefully manages Ollama service failures and model issues</criterion>
+  </acceptanceCriteria>
+
+  <integrationPoints>
+    <integration component="Configuration System" path="src/config/settings.py"/>
+    <integration component="Logging System" path="src/logging/"/>
+    <integration component="MCP Server" path="src/mcp_server/"/>
+    <integration component="Docker Compose" path="docker-compose.yml"/>
+  </integrationPoints>
+
+  <design>
+    <service name="OllamaClient">
+      <location>src/ai_processing/ollama_client.py</location>
+      <responsibilities>
+        <item>HTTP client for Ollama API communication</item>
+        <item>Connection pooling and timeout management</item>
+        <item>Request/response serialization</item>
+      </responsibilities>
+    </service>
+    <service name="ModelManager">
+      <location>src/ai_processing/model_manager.py</location>
+      <responsibilities>
+        <item>Model lifecycle management (download, load, unload)</item>
+        <item>Model metadata and status tracking</item>
+        <item>Model selection and switching</item>
+      </responsibilities>
+    </service>
+    <service name="OllamaHealthMonitor">
+      <location>src/ai_processing/health_monitor.py</location>
+      <responsibilities>
+        <item>Service availability monitoring</item>
+        <item>Model readiness checks</item>
+        <item>Performance metrics collection</item>
+      </responsibilities>
+    </service>
+  </design>
+
+  <configuration>
+    <settings>
+      <setting name="ollama_base_url" default="http://localhost:11434"/>
+      <setting name="default_model" default="codellama:7b"/>
+      <setting name="inference_timeout" default="30"/>
+      <setting name="max_retries" default="3"/>
+      <setting name="health_check_interval" default="60"/>
+    </settings>
+  </configuration>
+
+  <tests>
+    <unit>
+      <case>OllamaClient connection and API communication</case>
+      <case>ModelManager download and load operations</case>
+      <case>Health monitoring service availability checks</case>
+      <case>Configuration integration and validation</case>
+      <case>Error handling for service failures</case>
+    </unit>
+    <integration>
+      <case>End-to-end model management workflow</case>
+      <case>MCP tools for model operations</case>
+      <case>Docker Compose service integration</case>
+    </integration>
+  </tests>
+</storyContext>
