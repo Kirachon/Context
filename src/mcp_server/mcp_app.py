@@ -167,6 +167,7 @@ class MCPServer:
         from src.mcp_server.tools.indexing_optimization import register_indexing_optimization_tools
         from src.mcp_server.tools.query_optimization import register_query_optimization_tools
         from src.mcp_server.tools.result_presentation import register_result_presentation_tools
+        from src.mcp_server.tools.prompt_tools import register_prompt_tools
 
         register_health_tools(self.mcp)
         register_capability_tools(self.mcp)
@@ -180,6 +181,7 @@ class MCPServer:
         register_indexing_optimization_tools(self.mcp)
         register_query_optimization_tools(self.mcp)
         register_result_presentation_tools(self.mcp)
+        register_prompt_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
     
