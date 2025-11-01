@@ -1,0 +1,48 @@
+{
+  "id": null,
+  "uid": "context-overview",
+  "title": "Context - Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Target up",
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 8, "h": 6},
+      "targets": [
+        {"expr": "up{job=\"context-server\"}", "refId": "A"}
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Process CPU seconds (rate)",
+      "id": 2,
+      "gridPos": {"x": 8, "y": 0, "w": 16, "h": 6},
+      "targets": [
+        {"expr": "rate(process_cpu_seconds_total[5m])", "refId": "A"}
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Resident memory",
+      "id": 3,
+      "gridPos": {"x": 0, "y": 6, "w": 12, "h": 6},
+      "targets": [
+        {"expr": "process_resident_memory_bytes", "refId": "A"}
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Scrape duration seconds",
+      "id": 4,
+      "gridPos": {"x": 12, "y": 6, "w": 12, "h": 6},
+      "targets": [
+        {"expr": "scrape_duration_seconds{job=\"context-server\"}", "refId": "A"}
+      ]
+    }
+  ]
+}
+

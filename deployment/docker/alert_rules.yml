@@ -1,0 +1,12 @@
+groups:
+  - name: context.server
+    rules:
+      - alert: ContextServerDown
+        expr: up{job="context-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Context server is down"
+          description: "No metrics scraped from context-server for 1 minute."
+
