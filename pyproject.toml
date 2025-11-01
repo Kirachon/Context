@@ -1,0 +1,26 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "F",  # pyflakes
+  "B",  # bugbear
+  "I",  # import sorting
+]
+ignore = [
+  # Occasionally acceptable patterns; keep focused on impactful issues
+  "E203",  # whitespace before : (Black compatibility)
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+markers = [
+  "slow: marks tests as slow",
+]
+

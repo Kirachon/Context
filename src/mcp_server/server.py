@@ -13,6 +13,7 @@ import sys
 from datetime import datetime, timezone
 import logging
 
+from contextlib import asynccontextmanager
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -37,41 +38,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-from fastapi import Request
-from src.logging.manager import set_correlation_id
-import uuid
 
-
-@app.middleware("http")
-async def correlation_and_auth_middleware(request: Request, call_next):
-    cid = request.headers.get(settings.correlation_id_header) or str(uuid.uuid4())
-    set_correlation_id(cid)
-    try:
-        if settings.api_auth_enabled and settings.api_auth_scheme == "api_key":
-            api_key = request.headers.get("x-api-key")
-            if not api_key or (settings.api_key and api_key != settings.api_key):
-                return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content={
-                        "error": "unauthorized",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
-        response = await call_next(request)
-        response.headers[settings.correlation_id_header] = cid
-        return response
-    finally:
-        set_correlation_id(None)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize MCP server and file monitor on application startup"""
+# Lifespan handler replacing deprecated on_event startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("FastAPI application starting up...")
 
+    # Startup phase
     try:
         from src.mcp_server.mcp_app import start_mcp_server
-
         await start_mcp_server()
         logger.info("MCP server initialized successfully")
     except Exception as e:
@@ -106,15 +81,14 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize vector database: {e}", exc_info=True)
 
+    # Yield to run the application
+    yield
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Shutdown MCP server and file monitor on application shutdown"""
+    # Shutdown phase
     logger.info("FastAPI application shutting down...")
 
     try:
         from src.vector_db.qdrant_client import disconnect_qdrant
-
         await disconnect_qdrant()
         logger.info("Qdrant disconnected successfully")
     except Exception as e:
@@ -122,7 +96,6 @@ async def shutdown_event():
 
     try:
         from src.indexing.file_monitor import stop_file_monitor
-
         await stop_file_monitor()
         logger.info("File monitor stopped successfully")
     except Exception as e:
@@ -130,11 +103,43 @@ async def shutdown_event():
 
     try:
         from src.mcp_server.mcp_app import shutdown_mcp_server
-
         await shutdown_mcp_server()
         logger.info("MCP server shutdown successfully")
     except Exception as e:
         logger.error(f"Error during MCP server shutdown: {e}", exc_info=True)
+
+# Register lifespan with the FastAPI app
+app.router.lifespan_context = lifespan
+
+
+from fastapi import Request
+from src.logging.manager import set_correlation_id
+import uuid
+
+
+@app.middleware("http")
+async def correlation_and_auth_middleware(request: Request, call_next):
+    cid = request.headers.get(settings.correlation_id_header) or str(uuid.uuid4())
+    set_correlation_id(cid)
+    try:
+        if settings.api_auth_enabled and settings.api_auth_scheme == "api_key":
+            api_key = request.headers.get("x-api-key")
+            if not api_key or (settings.api_key and api_key != settings.api_key):
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={
+                        "error": "unauthorized",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+        response = await call_next(request)
+        response.headers[settings.correlation_id_header] = cid
+        return response
+    finally:
+        set_correlation_id(None)
+
+
+
 
 
 # Health check response model
