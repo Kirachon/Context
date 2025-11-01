@@ -210,7 +210,9 @@ class ProgressiveIndexer:
         """
         if task.retry_count < task.max_retries:
             task.retry_count += 1
-            heappush(self.task_queue, task)
+            # Avoid duplicating the task in the queue; if it's already queued, just update retry_count
+            if task not in self.task_queue:
+                heappush(self.task_queue, task)
             logger.warning(
                 f"Retrying failed task: {task.file_path} "
                 f"(attempt {task.retry_count}/{task.max_retries})"
@@ -218,7 +220,7 @@ class ProgressiveIndexer:
         else:
             self.failed_tasks += 1
             logger.error(f"Failed to index {task.file_path}: {error}")
-    
+
     def pause(self):
         """Pause indexing"""
         self.paused = True

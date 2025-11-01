@@ -85,16 +85,30 @@ class TreeSitterLoader:
         
         raise RuntimeError(f"Could not load Tree-sitter language: {name}")
     
-    def _load_prebuilt_language(self, name: str) -> Language:
-        """Load language from tree_sitter_languages package."""
+    def _load_prebuilt_language(self, name: str):
+        """Load language from per-language tree_sitter_* packages (0.25+)."""
+        # Map language name to module and function providing the PyCapsule
+        module_map = {
+            "python": ("tree_sitter_python", "language"),
+            "javascript": ("tree_sitter_javascript", "language"),
+            "typescript": ("tree_sitter_typescript", "language_typescript"),
+            "java": ("tree_sitter_java", "language"),
+            "cpp": ("tree_sitter_cpp", "language"),
+            "go": ("tree_sitter_go", "language"),
+            "rust": ("tree_sitter_rust", "language"),
+        }
+        if name not in module_map:
+            raise RuntimeError(f"Unsupported language: {name}")
+        mod_name, func_name = module_map[name]
         try:
-            from tree_sitter_languages import get_language
-            return get_language(name)
-        except ImportError as e:
-            raise RuntimeError(f"tree_sitter_languages package not available: {e}")
+            from tree_sitter import Language as TS_Language
+            mod = __import__(mod_name, fromlist=[func_name])
+            lang_fn = getattr(mod, func_name)
+            capsule = lang_fn()
+            return TS_Language(capsule)
         except Exception as e:
-            raise RuntimeError(f"Failed to get prebuilt language {name}: {e}")
-    
+            raise RuntimeError(f"Failed to load prebuilt language {name} from {mod_name}.{func_name}: {e}")
+
     def _load_compiled_language(self, name: str) -> Language:
         """Load language from compiled library."""
         # Determine library extension based on platform

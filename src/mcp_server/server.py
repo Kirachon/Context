@@ -36,6 +36,29 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+from fastapi import Request
+from src.logging.manager import set_correlation_id
+import uuid
+
+@app.middleware("http")
+async def correlation_and_auth_middleware(request: Request, call_next):
+    cid = request.headers.get(settings.correlation_id_header) or str(uuid.uuid4())
+    set_correlation_id(cid)
+    try:
+        if settings.api_auth_enabled and settings.api_auth_scheme == "api_key":
+            api_key = request.headers.get("x-api-key")
+            if not api_key or (settings.api_key and api_key != settings.api_key):
+                return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={
+                    "error": "unauthorized",
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
+        response = await call_next(request)
+        response.headers[settings.correlation_id_header] = cid
+        return response
+    finally:
+        set_correlation_id(None)
+
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -421,6 +444,11 @@ async def metrics_prometheus():
             "error": "prometheus_client not installed",
             "timestamp": datetime.utcnow().isoformat(),
         })
+
+@app.get("/ready", status_code=status.HTTP_200_OK)
+async def ready():
+    """Readiness probe endpoint."""
+    return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
 
 @app.get("/metrics.json")
 async def metrics_json():

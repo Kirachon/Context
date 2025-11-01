@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from qdrant_client.http import models
-from src.vector_db.qdrant_client import get_qdrant_client
+import src.vector_db.ast_store as ast_store
 from src.vector_db.embeddings import EmbeddingService
 from src.vector_db.ast_store import get_ast_vector_store
 from src.search.ast_models import (
@@ -127,7 +127,7 @@ class ASTSearchService:
     
     async def _search_symbols(self, query_embedding: List[float], request: ASTSearchRequest) -> List[ASTSearchResult]:
         """Search symbols collection."""
-        client = get_qdrant_client()
+        client = ast_store.get_qdrant_client()
         if not client:
             return []
         
@@ -159,7 +159,7 @@ class ASTSearchService:
     
     async def _search_classes(self, query_embedding: List[float], request: ASTSearchRequest) -> List[ASTSearchResult]:
         """Search classes collection."""
-        client = get_qdrant_client()
+        client = ast_store.get_qdrant_client()
         if not client:
             return []
         
@@ -191,7 +191,7 @@ class ASTSearchService:
     
     async def _search_imports(self, query_embedding: List[float], request: ASTSearchRequest) -> List[ASTSearchResult]:
         """Search imports collection."""
-        client = get_qdrant_client()
+        client = ast_store.get_qdrant_client()
         if not client:
             return []
         

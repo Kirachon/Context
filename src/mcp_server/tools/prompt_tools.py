@@ -18,6 +18,7 @@ from src.ai_processing.context_enhancer import get_context_enhancer
 from src.ai_processing.response_generator import get_response_generator
 from src.ai_processing.model_manager import get_model_manager
 from src.git.history import get_recent_commits, summarize_changes
+from src.mcp_server.tools.instrumentation import instrument_tool
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ def register_prompt_tools(mcp: FastMCP):
     """Register prompt tools with MCP server"""
 
     @mcp.tool()
+    @instrument_tool("prompt_analyze")
     async def prompt_analyze(prompt: str) -> Dict[str, Any]:
         """Analyze prompt intent and needs"""
         analyzer = get_prompt_analyzer()
@@ -37,6 +39,7 @@ def register_prompt_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("prompt_enhance")
     async def prompt_enhance(
         prompt: str,
         include_git_summary: bool = True
@@ -55,6 +58,7 @@ def register_prompt_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("prompt_generate")
     async def prompt_generate(
         prompt: str,
         model: Optional[str] = None
@@ -72,6 +76,7 @@ def register_prompt_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("prompt_set_model")
     async def prompt_set_model(model: str) -> Dict[str, Any]:
         """Set default model"""
         manager = get_model_manager()

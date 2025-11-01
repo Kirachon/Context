@@ -12,6 +12,8 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime
 
+from src.monitoring.metrics import metrics
+
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -143,11 +145,21 @@ class FileIndexer:
         """
         logger.info(f"Indexing file: {file_path}")
 
+        # Metrics
+        c_files = metrics.counter("indexing_files_total", "Indexed files", ("status", "lang"))
+        h_file = metrics.histogram("indexing_file_seconds", "Indexing file latency")
+        _t0 = asyncio.get_event_loop().time()
+
         try:
             # Extract metadata
             metadata = await self.extract_metadata(file_path)
 
             if not metadata:
+                try:
+                    h_file.labels().observe(asyncio.get_event_loop().time() - _t0)
+                    c_files.labels("skipped", "unknown").inc()
+                except Exception:
+                    pass
                 return None
 
             # Add indexing timestamp
@@ -208,6 +220,11 @@ class FileIndexer:
             self.stats["total_indexed"] += 1
             language = metadata["file_type"]
             self.stats["by_language"][language] = self.stats["by_language"].get(language, 0) + 1
+            try:
+                h_file.labels().observe(asyncio.get_event_loop().time() - _t0)
+                c_files.labels("success", language).inc()
+            except Exception:
+                pass
 
             logger.info(f"Successfully indexed {file_path} as {language}")
             return metadata
@@ -215,8 +232,13 @@ class FileIndexer:
         except Exception as e:
             logger.error(f"Error indexing file {file_path}: {e}", exc_info=True)
             self.stats["total_errors"] += 1
+            try:
+                h_file.labels().observe(asyncio.get_event_loop().time() - _t0)
+                c_files.labels("error", "unknown").inc()
+            except Exception:
+                pass
             return None
-    
+
     async def remove_file(self, file_path: str) -> bool:
         """
         Remove file from index

@@ -292,8 +292,44 @@ class SimilarityDetector:
         if norm1.startswith(norm2) or norm2.startswith(norm1):
             return 0.7
 
+        # Longest common prefix boost
+        lcp_len = 0
+        for c1, c2 in zip(norm1, norm2):
+            if c1 == c2:
+                lcp_len += 1
+            else:
+                break
+        if lcp_len >= 6:
+            return 0.7
+
         if norm1.endswith(norm2) or norm2.endswith(norm1):
             return 0.6
+
+        # Token overlap (snake/camel)
+        def split_tokens(s: str) -> List[str]:
+            tokens = []
+            buf = ''
+            for ch in s:
+                if ch in ['_', '-']:
+                    if buf:
+                        tokens.append(buf)
+                        buf = ''
+                elif ch.isupper():
+                    if buf:
+                        tokens.append(buf)
+                    buf = ch.lower()
+                else:
+                    buf += ch
+            if buf:
+                tokens.append(buf)
+            return tokens
+        toks1 = split_tokens(name1)
+        toks2 = split_tokens(name2)
+        if toks1 and toks2:
+            common = set(toks1) & set(toks2)
+            token_overlap = len(common) / max(len(set(toks1)), len(set(toks2)))
+            if token_overlap >= 0.5:
+                return 0.6
 
         # Simple character overlap
         common_chars = set(norm1) & set(norm2)
@@ -336,11 +372,16 @@ class SimilarityDetector:
             # Array/List types
             "list": "array", "List": "array", "array": "array", "Array": "array", "Vec": "array",
             # Map/Dict types
-            "dict": "map", "Dict": "map", "map": "map", "Map": "map", "HashMap": "map",
+            "dict": "map", "Dict": "map", "map": "map", "Map": "map", "HashMap": "map", "hashmap": "map",
         }
 
-        normalized = type_str.lower().strip()
-        return type_mappings.get(normalized, normalized)
+        raw = type_str.strip()
+        normalized = raw.lower()
+        mapped = type_mappings.get(normalized)
+        if mapped is not None:
+            return mapped
+        # If not a known primitive/container, preserve original (likely a domain type)
+        return raw
 
     # Language-specific normalizers
     def _normalize_python_symbol(self, symbol: SymbolInfo) -> CodeSignature:
