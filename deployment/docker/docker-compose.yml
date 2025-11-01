@@ -135,7 +135,6 @@ services:
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
       - "--web.listen-address=0.0.0.0:9093"
-      - "--config.expand-env=true"
     depends_on:
       prometheus:
         condition: service_started
