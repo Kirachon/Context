@@ -50,11 +50,16 @@ def _get_tree_sitter_parser(language: Language):
         import tree_sitter
         from .ts_loader import load_language
 
-        # Load language using our loader (tries prebuilt first, then compiled)
+        # Load language using our loader (returns PyCapsule for 0.25+)
         lang = load_language(language.value)
 
         parser = tree_sitter.Parser()
-        parser.set_language(lang)
+        # tree-sitter >=0.25 uses property assignment for language
+        try:
+            parser.language = lang
+        except Exception:
+            # Fallback for older versions
+            parser.set_language(lang)  # type: ignore[attr-defined]
         _parser_cache[language] = parser
         logger.debug(f"Created tree-sitter parser for {language.value}")
         return parser

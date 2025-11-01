@@ -22,6 +22,9 @@ from src.search.filters import SearchFilters, apply_filters
 from src.search.ranking import RankingService, get_ranking_service
 from src.vector_db.embeddings import generate_embedding
 from src.vector_db.vector_store import search_vectors
+from src.search.query_cache import get_query_cache
+from src.analytics.usage import usage
+from src.monitoring.metrics import metrics
 # Lazy import inside search() to avoid heavy dependencies during import time
 # from src.indexing.models import get_file_metadata
 
@@ -128,14 +131,54 @@ class SemanticSearchService:
 
         try:
             logger.info(f"Performing semantic search: '{request.query}'")
+            usage().incr("semantic_search_requests")
+            c_req = metrics.counter("search_requests_total", "Search requests", ("status",))
+            c_cache = metrics.counter("search_cache_hits_total", "Search cache hits")
+            h_req = metrics.histogram("search_request_seconds", "Search latency")
 
-            # Check cache first
+            # Build filters for cache keying
+            applied_filters = self._get_applied_filters(request)
+
+            # Global query cache (shared across workers) behind feature flag
+            use_global_cache = False
+            try:
+                from src.config.settings import settings as _settings
+                use_global_cache = bool(getattr(_settings, "query_cache_redis_enabled", False))
+            except Exception:
+                use_global_cache = False
+            qc = get_query_cache() if use_global_cache else None
+            cached_payload = qc.get(request.query, applied_filters) if qc else None
+            if cached_payload:
+                try:
+                    # Rehydrate SearchResponse from cached dict
+                    cached_response = SearchResponse(**cached_payload)
+                    self.stats["cache_hits"] += 1
+                    usage().incr("semantic_search_cache_hits")
+                    try:
+                        c_cache.labels().inc() if hasattr(c_cache, "labels") else c_cache.inc()  # type: ignore
+                        h_req.labels().observe(time.time() - start_time)
+                        c_req.labels("hit").inc()
+                    except Exception:
+                        pass
+                    logger.debug("Returning cached search results (global cache)")
+                    return cached_response
+                except Exception:
+                    pass
+
+            # Local in-process cache (legacy)
             cache_key = self._get_cache_key(request)
             if cache_key in self.cache:
                 cached_response = self.cache[cache_key]
                 if self._is_cache_valid(cached_response):
                     self.stats["cache_hits"] += 1
-                    logger.debug("Returning cached search results")
+                    usage().incr("semantic_search_cache_hits")
+                    try:
+                        c_cache.labels().inc() if hasattr(c_cache, "labels") else c_cache.inc()  # type: ignore
+                        h_req.labels().observe(time.time() - start_time)
+                        c_req.labels("hit").inc()
+                    except Exception:
+                        pass
+                    logger.debug("Returning cached search results (local cache)")
                     return cached_response
                 else:
                     # Remove expired cache entry
@@ -155,16 +198,26 @@ class SemanticSearchService:
 
             if not vector_results:
                 # Return empty results
+                try:
+                    h_req.labels().observe(time.time() - start_time)
+                    c_req.labels("ok").inc()
+                except Exception:
+                    pass
                 response = SearchResponse(
                     query=request.query,
                     results=[],
                     total_results=0,
                     search_time_ms=(time.time() - start_time) * 1000,
-                    filters_applied=self._get_applied_filters(request),
+                    filters_applied=applied_filters,
                     timestamp=datetime.utcnow().isoformat()
                 )
 
                 # Cache empty results too
+                if qc:
+                    try:
+                        qc.set(request.query, response.model_dump(), applied_filters)
+                    except Exception:
+                        pass
                 self.cache[cache_key] = response
                 return response
 
@@ -247,17 +300,27 @@ class SemanticSearchService:
                 results=final_results,
                 total_results=len(filtered_results),
                 search_time_ms=search_time_ms,
-                filters_applied=self._get_applied_filters(request),
+                filters_applied=applied_filters,
                 timestamp=datetime.utcnow().isoformat()
             )
 
-            # Cache response
+            # Cache response (global + local)
+            if qc:
+                try:
+                    qc.set(request.query, response.model_dump(), applied_filters)
+                except Exception:
+                    pass
             self.cache[cache_key] = response
 
             # Update stats
             self.stats["total_searches"] += 1
             self.stats["total_results"] += len(final_results)
             self.stats["response_times"].append(search_time_ms)
+            try:
+                h_req.labels().observe(time.time() - start_time)
+                c_req.labels("ok").inc()
+            except Exception:
+                pass
 
             # Track popular queries
             query_lower = request.query.lower()
@@ -268,6 +331,11 @@ class SemanticSearchService:
 
         except Exception as e:
             self.stats["errors"] += 1
+            try:
+                h_req.labels().observe(time.time() - start_time)
+                c_req.labels("error").inc()
+            except Exception:
+                pass
             logger.error(f"Error during semantic search: {e}", exc_info=True)
             raise
 

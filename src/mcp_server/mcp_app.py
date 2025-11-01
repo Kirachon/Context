@@ -19,11 +19,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from fastmcp import FastMCP
 from src.config.settings import settings
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper()),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Configure logging (centralized)
+from src.logging.manager import configure_logging
+configure_logging(level=settings.log_level, fmt=settings.log_format)
 logger = logging.getLogger(__name__)
 
 
@@ -161,8 +159,17 @@ class MCPServer:
         from src.mcp_server.tools.vector import register_vector_tools
         from src.mcp_server.tools.search import register_search_tools
         from src.mcp_server.tools.pattern_search import register_pattern_search_tools
-        from src.mcp_server.tools.dependency_analysis import register_dependency_tools
+        from src.mcp_server.tools.cross_language_analysis import register_cross_language_tools
         from src.mcp_server.tools.query_understanding import register_query_tools
+        from src.mcp_server.tools.cache_management import register_cache_management_tools
+        from src.mcp_server.tools.indexing_optimization import register_indexing_optimization_tools
+        from src.mcp_server.tools.query_optimization import register_query_optimization_tools
+        from src.mcp_server.tools.result_presentation import register_result_presentation_tools
+        from src.mcp_server.tools.prompt_tools import register_prompt_tools
+        from src.mcp_server.tools.security_tools import register_security_tools
+        from src.mcp_server.tools.monitoring_tools import register_monitoring_tools
+        from src.mcp_server.tools.model_tools import register_model_tools
+        from src.mcp_server.tools.analytics_tools import register_analytics_tools
 
         register_health_tools(self.mcp)
         register_capability_tools(self.mcp)
@@ -170,8 +177,17 @@ class MCPServer:
         register_vector_tools(self.mcp)
         register_search_tools(self.mcp)
         register_pattern_search_tools(self.mcp)
-        register_dependency_tools(self.mcp)
+        register_cross_language_tools(self.mcp)
         register_query_tools(self.mcp)
+        register_cache_management_tools(self.mcp)
+        register_indexing_optimization_tools(self.mcp)
+        register_query_optimization_tools(self.mcp)
+        register_result_presentation_tools(self.mcp)
+        register_prompt_tools(self.mcp)
+        register_security_tools(self.mcp)
+        register_monitoring_tools(self.mcp)
+        register_model_tools(self.mcp)
+        register_analytics_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
     

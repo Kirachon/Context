@@ -377,18 +377,9 @@ class TreeSitterQueryEngine:
                 description="Find Go error handling patterns",
                 language="go",
                 query_string="""
-                (if_statement
-                  condition: (binary_expression
-                    left: (identifier) @error_var
-                    operator: "!="
-                    right: (nil) @nil_check
-                  ) @error_condition
-                  consequence: (block
-                    (return_statement) @error_return
-                  )
-                ) @error_handling
+                (if_statement) @error_handling
                 """,
-                expected_captures=["error_var", "error_condition", "error_return"]
+                expected_captures=["error_handling"]
             )
         ]
 
@@ -464,20 +455,40 @@ class TreeSitterQueryEngine:
                 ts_parser = self._get_ts_parser(pattern.language)
                 if ts_parser:
                     tree = ts_parser.parse(code.encode('utf-8'))
-                    captures = query.captures(tree.root_node)
-
-                    for node, capture_name in captures:
-                        match = QueryMatch(
-                            pattern_name=pattern.name,
-                            language=pattern.language,
-                            file_path=file_path,
-                            start_line=node.start_point[0] + 1,
-                            end_line=node.end_point[0] + 1,
-                            matched_text=code[node.start_byte:node.end_byte],
-                            captures={capture_name: code[node.start_byte:node.end_byte]},
-                            confidence=1.0
-                        )
-                        matches.append(match)
+                    # tree-sitter >=0.25 uses QueryCursor for execution
+                    try:
+                        from tree_sitter import QueryCursor
+                        cursor = QueryCursor(query)
+                        results = cursor.matches(tree.root_node)
+                        for _, cap_map in results:
+                            for cap_name, nodes in cap_map.items():
+                                for node in nodes:
+                                    match = QueryMatch(
+                                        pattern_name=pattern.name,
+                                        language=pattern.language,
+                                        file_path=file_path,
+                                        start_line=node.start_point[0] + 1,
+                                        end_line=node.end_point[0] + 1,
+                                        matched_text=code[node.start_byte:node.end_byte],
+                                        captures={cap_name: code[node.start_byte:node.end_byte]},
+                                        confidence=1.0
+                                    )
+                                    matches.append(match)
+                    except Exception:
+                        # Fallback for older versions
+                        captures = query.captures(tree.root_node)
+                        for node, capture_name in captures:
+                            match = QueryMatch(
+                                pattern_name=pattern.name,
+                                language=pattern.language,
+                                file_path=file_path,
+                                start_line=node.start_point[0] + 1,
+                                end_line=node.end_point[0] + 1,
+                                matched_text=code[node.start_byte:node.end_byte],
+                                captures={capture_name: code[node.start_byte:node.end_byte]},
+                                confidence=1.0
+                            )
+                            matches.append(match)
             except Exception as e:
                 logger.error(f"Query execution failed for {pattern.name}: {e}")
 
@@ -503,7 +514,12 @@ class TreeSitterQueryEngine:
         if key in self._compiled_queries:
             return self._compiled_queries[key]
         try:
-            q = language_obj.query(pattern.query_string)
+            # Prefer new Query(language, source) API
+            try:
+                from tree_sitter import Query as TS_Query
+                q = TS_Query(language_obj, pattern.query_string)
+            except Exception:
+                q = language_obj.query(pattern.query_string)
             self._compiled_queries[key] = q
             return q
         except Exception as e:
@@ -517,7 +533,10 @@ class TreeSitterQueryEngine:
             import tree_sitter
             lang = load_language(language)
             parser = tree_sitter.Parser()
-            parser.set_language(lang)
+            try:
+                parser.language = lang
+            except Exception:
+                parser.set_language(lang)  # type: ignore[attr-defined]
             return parser
         except Exception as e:
             logger.error(f"Failed to create parser for {language}: {e}")

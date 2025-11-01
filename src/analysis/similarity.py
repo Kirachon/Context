@@ -310,6 +310,32 @@ class SimilarityDetector:
             if ratio >= 0.3:
                 return 0.6
 
+        # Token overlap (snake/camel)
+        def split_tokens(s: str) -> List[str]:
+            tokens = []
+            buf = ''
+            for ch in s:
+                if ch in ['_', '-']:
+                    if buf:
+                        tokens.append(buf)
+                        buf = ''
+                elif ch.isupper():
+                    if buf:
+                        tokens.append(buf)
+                    buf = ch.lower()
+                else:
+                    buf += ch
+            if buf:
+                tokens.append(buf)
+            return tokens
+        toks1 = split_tokens(name1)
+        toks2 = split_tokens(name2)
+        if toks1 and toks2:
+            common = set(toks1) & set(toks2)
+            token_overlap = len(common) / max(len(set(toks1)), len(set(toks2)))
+            if token_overlap >= 0.5:
+                return 0.6
+
         # Simple character overlap
         common_chars = set(norm1) & set(norm2)
         if common_chars:

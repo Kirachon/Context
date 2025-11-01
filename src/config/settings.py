@@ -4,8 +4,8 @@ Context Application Settings
 Configuration management using Pydantic Settings for environment-based configuration.
 """
 
-from pydantic_settings import BaseSettings
-from pydantic import Field, validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 import os
@@ -44,12 +44,21 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_default_model: str = "codellama:7b"
     ollama_timeout: int = 300
+    ollama_max_retries: int = 3
 
     # Server configuration
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = True
     workers: int = 1
+
+    # API AuthN (optional)
+    api_auth_enabled: bool = False
+    api_auth_scheme: str = "none"  # options: none, api_key
+    api_key: Optional[str] = None
+
+    # Correlation ID
+    correlation_id_header: str = "X-Request-ID"
 
     # MCP Server configuration
     mcp_enabled: bool = True
@@ -60,7 +69,8 @@ class Settings(BaseSettings):
         description="MCP server capabilities"
     )
 
-    @validator('mcp_capabilities', pre=True)
+    @field_validator('mcp_capabilities', mode='before')
+    @classmethod
     def parse_mcp_capabilities(cls, v):
         if isinstance(v, str):
             # Handle comma-separated string
@@ -74,6 +84,16 @@ class Settings(BaseSettings):
             # Handle comma-separated values
             return [cap.strip() for cap in v.split(',') if cap.strip()]
         return v
+    # Query cache
+    query_cache_redis_enabled: bool = False
+    cache_max_items: int = 500
+
+    # Circuit breaker (Ollama)
+    ollama_cb_enabled: bool = True
+    ollama_cb_threshold: int = 5
+    ollama_cb_window_seconds: int = 30
+    ollama_cb_cooldown_seconds: int = 20
+
     mcp_connection_timeout: int = 30
     mcp_max_retries: int = 3
 
@@ -97,7 +117,8 @@ class Settings(BaseSettings):
         description="Patterns to ignore during indexing"
     )
 
-    @validator('indexed_paths', pre=True)
+    @field_validator('indexed_paths', mode='before')
+    @classmethod
     def parse_indexed_paths(cls, v):
         if isinstance(v, str):
             # Handle comma-separated string
@@ -112,7 +133,8 @@ class Settings(BaseSettings):
             return [path.strip() for path in v.split(',') if path.strip()]
         return v
 
-    @validator('ignore_patterns', pre=True)
+    @field_validator('ignore_patterns', mode='before')
+    @classmethod
     def parse_ignore_patterns(cls, v):
         if isinstance(v, str):
             # Handle comma-separated string
@@ -132,10 +154,11 @@ class Settings(BaseSettings):
     min_cpu_cores: int = 4
     min_disk_space_gb: int = 10
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 # Global settings instance
