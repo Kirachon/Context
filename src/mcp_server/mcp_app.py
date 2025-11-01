@@ -163,6 +163,7 @@ class MCPServer:
         from src.mcp_server.tools.pattern_search import register_pattern_search_tools
         from src.mcp_server.tools.dependency_analysis import register_dependency_tools
         from src.mcp_server.tools.query_understanding import register_query_tools
+        from src.mcp_server.tools.cache_management import register_cache_management_tools
 
         register_health_tools(self.mcp)
         register_capability_tools(self.mcp)
@@ -172,6 +173,7 @@ class MCPServer:
         register_pattern_search_tools(self.mcp)
         register_dependency_tools(self.mcp)
         register_query_tools(self.mcp)
+        register_cache_management_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
     
