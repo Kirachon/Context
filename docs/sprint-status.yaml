@@ -39,19 +39,19 @@ story_location: {project-root}/docs/stories
 
 development_status:
   # Epic 1: Project Foundation & Core Infrastructure
-  epic-1: contexted
+  epic-1: done
   1-1-project-setup-and-configuration: done
   1-2-core-mcp-server-implementation: done
   1-3-file-system-monitoring-and-basic-indexing: done
   1-4-vector-database-integration: done
   1-5-basic-semantic-search-implementation: done
   1-6-configuration-management: done
-  1-7-basic-logging-and-monitoring: ready-for-dev
-  1-8-integration-testing-framework: ready-for-dev
-  1-9-documentation-and-getting-started-guide: ready-for-dev
-  1-10-performance-baseline-and-optimization: ready-for-dev
-  1-11-error-handling-and-recovery: ready-for-dev
-  1-12-security-and-access-control: ready-for-dev
+  1-7-basic-logging-and-monitoring: done
+  1-8-integration-testing-framework: done
+  1-9-documentation-and-getting-started-guide: done
+  1-10-performance-baseline-and-optimization: done
+  1-11-error-handling-and-recovery: done
+  1-12-security-and-access-control: done
   epic-1-retrospective: optional
 
   # Epic 2: Semantic Search & Code Intelligence
