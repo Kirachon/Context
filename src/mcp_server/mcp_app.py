@@ -170,6 +170,8 @@ class MCPServer:
         from src.mcp_server.tools.prompt_tools import register_prompt_tools
         from src.mcp_server.tools.security_tools import register_security_tools
         from src.mcp_server.tools.monitoring_tools import register_monitoring_tools
+        from src.mcp_server.tools.model_tools import register_model_tools
+        from src.mcp_server.tools.analytics_tools import register_analytics_tools
 
         register_health_tools(self.mcp)
         register_capability_tools(self.mcp)
@@ -186,6 +188,8 @@ class MCPServer:
         register_prompt_tools(self.mcp)
         register_security_tools(self.mcp)
         register_monitoring_tools(self.mcp)
+        register_model_tools(self.mcp)
+        register_analytics_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
     

@@ -16,13 +16,24 @@ class ModelManager:
     def __init__(self):
         self._default_model = settings.ollama_default_model
         self._params: Dict[str, Any] = {}
+        self._models: Dict[str, Dict[str, Any]] = {
+            settings.ollama_default_model: {}
+        }
 
     def set_default_model(self, model: str):
         logger.info(f"Default model set to {model}")
+        if model not in self._models:
+            self._models[model] = {}
         self._default_model = model
 
     def get_default_model(self) -> str:
         return self._default_model
+
+    def register_model(self, name: str, **params):
+        self._models[name] = dict(params)
+
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
+        return dict(self._models)
 
     def set_params(self, **kwargs):
         self._params.update(kwargs)
