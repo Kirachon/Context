@@ -115,6 +115,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=15d"
@@ -123,6 +124,25 @@ services:
         condition: service_started
     networks:
       - context-network
+  # Alertmanager - Alert routing
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: context-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--web.listen-address=0.0.0.0:9093"
+      - "--config.expand-env=true"
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - context-network
+
+
 
   # Grafana - Metrics visualization
   grafana:
@@ -150,6 +170,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  prometheus_data:
     driver: local
 
 networks:

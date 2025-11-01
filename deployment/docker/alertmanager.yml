@@ -1,0 +1,19 @@
+route:
+  receiver: devnull
+
+receivers:
+  - name: devnull
+    webhook_configs: []
+
+# Example Slack receiver (uncomment and configure, requires --config.expand-env)
+# receivers:
+#   - name: slack
+#     slack_configs:
+#       - send_resolved: true
+#         channel: "#alerts"
+#         username: "Alertmanager"
+#         api_url: "${SLACK_WEBHOOK_URL}"
+#
+# route:
+#   receiver: slack
+
