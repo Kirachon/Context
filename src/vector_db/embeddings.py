@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from sentence_transformers import SentenceTransformer
 import torch
 import numpy as np
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,24 +26,31 @@ logger = logging.getLogger(__name__)
 class EmbeddingService:
     """
     Embedding Service
-    
-    Generates vector embeddings for code text using sentence-transformers.
+
+    Generates vector embeddings for code text using sentence-transformers or UniXcoder (feature-flagged).
     """
-    
+
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         """
         Initialize embedding service
-        
+
         Args:
             model_name: Name of the sentence-transformers model
         """
-        self.model_name = model_name
-        self.model: Optional[SentenceTransformer] = None
-        self.embedding_dim = 384  # Default for all-MiniLM-L6-v2
+        # Provider selection via settings
+        self.provider = (settings.embeddings_provider or "sentence-transformers").lower()
+        if self.provider == "unixcoder" and not settings.unixcoder_enabled:
+            logger.warning("UniXcoder provider selected but not enabled; falling back to sentence-transformers")
+            self.provider = "sentence-transformers"
+
+        self.model_name = model_name if self.provider == "sentence-transformers" else "microsoft/unixcoder-base"
+        self.model: Optional[Any] = None
+        self.tokenizer: Optional[Any] = None  # For UniXcoder
+        self.embedding_dim = 384  # Default for all-MiniLM-L6-v2; will update after load
         self.max_chunk_length = 512
         self.cache: Dict[str, List[float]] = {}
-        
-        logger.info(f"EmbeddingService initialized with model: {model_name}")
+
+        logger.info(f"EmbeddingService initialized provider={self.provider} model={self.model_name}")
     
     async def initialize(self):
         """Initialize the embedding model"""
@@ -53,19 +61,30 @@ class EmbeddingService:
         logger.info(f"Loading embedding model: {self.model_name}")
         
         try:
-            # Load model in a thread to avoid blocking
             loop = asyncio.get_event_loop()
-            self.model = await loop.run_in_executor(
-                None, 
-                lambda: SentenceTransformer(self.model_name)
-            )
-            
-            # Get actual embedding dimension
-            test_embedding = self.model.encode(["test"])
-            self.embedding_dim = len(test_embedding[0])
-            
+            if self.provider == "sentence-transformers":
+                # Load ST model in a thread to avoid blocking
+                self.model = await loop.run_in_executor(
+                    None,
+                    lambda: SentenceTransformer(self.model_name)
+                )
+                test_embedding = self.model.encode(["test"])
+                self.embedding_dim = len(test_embedding[0])
+            else:
+                # Load UniXcoder model/tokenizer (CPU)
+                from transformers import AutoTokenizer, AutoModel
+                def _load_unixcoder():
+                    tok = AutoTokenizer.from_pretrained(self.model_name)
+                    mdl = AutoModel.from_pretrained(self.model_name)
+                    return tok, mdl
+                self.tokenizer, self.model = await loop.run_in_executor(None, _load_unixcoder)
+                # Infer hidden size from model config
+                hidden = getattr(getattr(self.model, "config", None), "hidden_size", None)
+                if hidden:
+                    self.embedding_dim = int(hidden)
+
             logger.info(f"Embedding model loaded successfully (dim: {self.embedding_dim})")
-            
+
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}", exc_info=True)
             raise
@@ -140,16 +159,28 @@ class EmbeddingService:
             return self.cache[cache_key]
         
         try:
-            logger.debug(f"Generating embedding for text (length: {len(text)})")
-            
-            # Generate embedding in thread to avoid blocking
+            logger.debug(f"Generating embedding for text (length: {len(text)}) provider={self.provider}")
             loop = asyncio.get_event_loop()
-            embedding = await loop.run_in_executor(
-                None,
-                lambda: self.model.encode([text])[0]
-            )
 
-            # Convert to list and cache (support numpy, torch, or plain list)
+            if self.provider == "sentence-transformers":
+                embedding = await loop.run_in_executor(
+                    None,
+                    lambda: self.model.encode([text])[0]
+                )
+            else:
+                # UniXcoder: mean pool last hidden state
+                import numpy as _np
+                with torch.no_grad():
+                    inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+                    outputs = self.model(**inputs)
+                    token_embeddings = outputs.last_hidden_state  # [1, seq, hidden]
+                    mask = inputs["attention_mask"].unsqueeze(-1).float()
+                    summed = (token_embeddings * mask).sum(dim=1)
+                    counts = mask.sum(dim=1).clamp(min=1.0)
+                    mean_pooled = (summed / counts).squeeze(0).cpu().numpy()
+                    embedding = mean_pooled
+
+            # Convert to list and cache
             if hasattr(embedding, "tolist"):
                 embedding_list = embedding.tolist()
             elif isinstance(embedding, (list, tuple)):
@@ -160,15 +191,14 @@ class EmbeddingService:
                     if isinstance(embedding, _np.ndarray):
                         embedding_list = embedding.tolist()
                     else:
-                        # Last resort: wrap in list() constructor
                         embedding_list = list(embedding)
                 except Exception:
                     embedding_list = list(embedding)
             self.cache[cache_key] = embedding_list
-            
+
             logger.debug(f"Generated embedding with dimension: {len(embedding_list)}")
             return embedding_list
-            
+
         except Exception as e:
             logger.error(f"Error generating embedding: {e}", exc_info=True)
             return None

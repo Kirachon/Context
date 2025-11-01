@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 1800
     indexing_batch_size: int = 100
 
+    # Embeddings provider (feature-flagged)
+    embeddings_provider: str = Field(default="sentence-transformers", description="Embedding provider: 'sentence-transformers' (default) or 'unixcoder'")
+    unixcoder_enabled: bool = Field(default=False, description="Enable UniXcoder provider behind feature flag")
+
     # File system monitoring
     indexed_paths: List[str] = Field(default=["./"], description="Paths to index for search")
     ignore_patterns: List[str] = Field(

@@ -1,0 +1,710 @@
+{
+  "embedding_comparison": {
+    "dataset_stats": {
+      "total_samples": 7,
+      "total_similarity_pairs": 5,
+      "languages": {
+        "python": 3,
+        "javascript": 3,
+        "typescript": 1
+      },
+      "categories": {
+        "async_function": 3,
+        "factory_pattern": 2,
+        "repository_pattern": 2
+      },
+      "cross_language_pairs": 4
+    },
+    "models": {
+      "sentence_transformers": {
+        "model_name": "sentence-transformers/all-mpnet-base-v2",
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1_score": 0.8888888888888888,
+        "avg_similarity_accuracy": "0.942694",
+        "encoding_time_ms": 301.84483528137207,
+        "memory_usage_mb": 0.0205078125,
+        "cross_language_accuracy": "0.83293766"
+      },
+      "unixcoder": {
+        "model_name": "unixcoder/microsoft/unixcoder-base",
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "avg_similarity_accuracy": "0.8910961",
+        "encoding_time_ms": 72.44682312011719,
+        "memory_usage_mb": 0.0205078125,
+        "cross_language_accuracy": "0.768216"
+      }
+    },
+    "comparison": {
+      "availability": {
+        "sentence_transformers": true,
+        "unixcoder": true
+      },
+      "performance": {
+        "encoding_time": {
+          "sentence_transformers": 301.84483528137207,
+          "unixcoder": 72.44682312011719,
+          "winner": "unixcoder"
+        },
+        "memory_usage": {
+          "sentence_transformers": 0.0205078125,
+          "unixcoder": 0.0205078125,
+          "winner": "unixcoder"
+        }
+      },
+      "accuracy": {
+        "f1_score": {
+          "sentence_transformers": 0.8888888888888888,
+          "unixcoder": 1.0,
+          "winner": "unixcoder"
+        },
+        "similarity_accuracy": {
+          "sentence_transformers": "0.942694",
+          "unixcoder": "0.8910961",
+          "winner": "sentence_transformers"
+        },
+        "cross_language_accuracy": {
+          "sentence_transformers": "0.83293766",
+          "unixcoder": "0.768216",
+          "winner": "sentence_transformers"
+        }
+      },
+      "recommendations": []
+    },
+    "recommendations": {
+      "primary_recommendation": "switch_to_unixcoder",
+      "reasoning": [
+        "UniXcoder wins 3/5 metrics"
+      ],
+      "trade_offs": {
+        "sentence_transformers": {
+          "pros": [
+            "Proven stability",
+            "Good general-purpose performance",
+            "Easy integration"
+          ],
+          "cons": [
+            "Not code-specific",
+            "May miss code semantics"
+          ]
+        },
+        "unixcoder": {
+          "pros": [
+            "Code-specific training",
+            "Better code understanding",
+            "Cross-language awareness"
+          ],
+          "cons": [
+            "Larger model size",
+            "More complex integration",
+            "Potential stability issues"
+          ]
+        }
+      },
+      "next_steps": [
+        "Monitor performance in production",
+        "Consider hybrid approach for different use cases",
+        "Evaluate on larger dataset if needed"
+      ],
+      "risk_assessment": {}
+    }
+  },
+  "query_patterns": {
+    "patterns_tested": 23,
+    "successful_matches": 3,
+    "languages": {
+      "python": {
+        "patterns_available": 4,
+        "samples_tested": 3,
+        "successful_matches": 3
+      },
+      "javascript": {
+        "patterns_available": 3,
+        "samples_tested": 3,
+        "successful_matches": 0
+      },
+      "typescript": {
+        "patterns_available": 2,
+        "samples_tested": 1,
+        "successful_matches": 0
+      }
+    },
+    "pattern_effectiveness": {
+      "async_functions": {
+        "total_tests": 6,
+        "successful_matches": 1,
+        "languages": [
+          "javascript",
+          "python"
+        ],
+        "success_rate": 0.16666666666666666
+      },
+      "factory_methods": {
+        "total_tests": 3,
+        "successful_matches": 0,
+        "languages": [
+          "python"
+        ],
+        "success_rate": 0.0
+      },
+      "repository_crud": {
+        "total_tests": 3,
+        "successful_matches": 1,
+        "languages": [
+          "python"
+        ],
+        "success_rate": 0.3333333333333333
+      },
+      "decorator_patterns": {
+        "total_tests": 3,
+        "successful_matches": 1,
+        "languages": [
+          "python"
+        ],
+        "success_rate": 0.3333333333333333
+      },
+      "factory_classes": {
+        "total_tests": 3,
+        "successful_matches": 0,
+        "languages": [
+          "javascript"
+        ],
+        "success_rate": 0.0
+      },
+      "promise_chains": {
+        "total_tests": 3,
+        "successful_matches": 0,
+        "languages": [
+          "javascript"
+        ],
+        "success_rate": 0.0
+      },
+      "interface_implementations": {
+        "total_tests": 1,
+        "successful_matches": 0,
+        "languages": [
+          "typescript"
+        ],
+        "success_rate": 0.0
+      },
+      "generic_functions": {
+        "total_tests": 1,
+        "successful_matches": 0,
+        "languages": [
+          "typescript"
+        ],
+        "success_rate": 0.0
+      }
+    },
+    "sample_matches": {
+      "python_async_functions": [
+        {
+          "sample_id": "py_async_1",
+          "matched_text": "async def fetch_user_data(user_id: int) -> dict:\n    \"\"\"Fetch user data with error handling.\"\"\"\n    ...",
+          "start_line": 2,
+          "end_line": 10,
+          "captures": {
+            "async_like_function": "async def fetch_user_data(user_id: int) -> dict:\n    \"\"\"Fetch user data with error handling.\"\"\"\n    try:\n        async with aiohttp.ClientSession() as session:\n            async with session.get(f\"/api/users/{user_id}\") as response:\n                return await response.json()\n    except Exception as e:\n        logger.error(f\"Failed to fetch user {user_id}: {e}\")\n        raise"
+          }
+        },
+        {
+          "sample_id": "py_async_1",
+          "matched_text": "fetch_user_data",
+          "start_line": 2,
+          "end_line": 2,
+          "captures": {
+            "function_name": "fetch_user_data"
+          }
+        },
+        {
+          "sample_id": "py_async_1",
+          "matched_text": "try:\n        async with aiohttp.ClientSession() as session:\n            async with session.get(f\"/ap...",
+          "start_line": 4,
+          "end_line": 10,
+          "captures": {
+            "try_block": "try:\n        async with aiohttp.ClientSession() as session:\n            async with session.get(f\"/api/users/{user_id}\") as response:\n                return await response.json()\n    except Exception as e:\n        logger.error(f\"Failed to fetch user {user_id}: {e}\")\n        raise"
+          }
+        }
+      ],
+      "python_decorator_patterns": [
+        {
+          "sample_id": "py_factory_1",
+          "matched_text": "@staticmethod\n    def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\"...",
+          "start_line": 5,
+          "end_line": 12,
+          "captures": {
+            "decorated_def": "@staticmethod\n    def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\":\n            return AdminUser(**kwargs)\n        elif user_type == \"regular\":\n            return RegularUser(**kwargs)\n        else:\n            raise ValueError(f\"Unknown user type: {user_type}\")"
+          }
+        },
+        {
+          "sample_id": "py_factory_1",
+          "matched_text": "@staticmethod",
+          "start_line": 5,
+          "end_line": 5,
+          "captures": {
+            "decorator": "@staticmethod"
+          }
+        },
+        {
+          "sample_id": "py_factory_1",
+          "matched_text": "staticmethod",
+          "start_line": 5,
+          "end_line": 5,
+          "captures": {
+            "decorator_name": "staticmethod"
+          }
+        },
+        {
+          "sample_id": "py_factory_1",
+          "matched_text": "def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\":\n            retu...",
+          "start_line": 6,
+          "end_line": 12,
+          "captures": {
+            "decorated_function": "def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\":\n            return AdminUser(**kwargs)\n        elif user_type == \"regular\":\n            return RegularUser(**kwargs)\n        else:\n            raise ValueError(f\"Unknown user type: {user_type}\")"
+          }
+        },
+        {
+          "sample_id": "py_factory_1",
+          "matched_text": "create_user",
+          "start_line": 6,
+          "end_line": 6,
+          "captures": {
+            "function_name": "create_user"
+          }
+        }
+      ],
+      "python_repository_crud": [
+        {
+          "sample_id": "py_repository_1",
+          "matched_text": "class UserRepository:\n    \"\"\"Repository for user data access.\"\"\"\n    \n    def __init__(self, db_sess...",
+          "start_line": 2,
+          "end_line": 22,
+          "captures": {
+            "repository_class": "class UserRepository:\n    \"\"\"Repository for user data access.\"\"\"\n    \n    def __init__(self, db_session):\n        self.db = db_session\n    \n    async def find_by_id(self, user_id: int) -> Optional[User]:\n        return await self.db.query(User).filter(User.id == user_id).first()\n    \n    async def save(self, user: User) -> User:\n        self.db.add(user)\n        await self.db.commit()\n        return user\n    \n    async def delete(self, user_id: int) -> bool:\n        user = await self.find_by_id(user_id)\n        if user:\n            await self.db.delete(user)\n            await self.db.commit()\n            return True\n        return False"
+          }
+        },
+        {
+          "sample_id": "py_repository_1",
+          "matched_text": "UserRepository",
+          "start_line": 2,
+          "end_line": 2,
+          "captures": {
+            "class_name": "UserRepository"
+          }
+        },
+        {
+          "sample_id": "py_repository_1",
+          "matched_text": "async def save(self, user: User) -> User:\n        self.db.add(user)\n        await self.db.commit()\n ...",
+          "start_line": 11,
+          "end_line": 14,
+          "captures": {
+            "crud_method": "async def save(self, user: User) -> User:\n        self.db.add(user)\n        await self.db.commit()\n        return user"
+          }
+        },
+        {
+          "sample_id": "py_repository_1",
+          "matched_text": "save",
+          "start_line": 11,
+          "end_line": 11,
+          "captures": {
+            "method_name": "save"
+          }
+        },
+        {
+          "sample_id": "py_repository_1",
+          "matched_text": "self.db.add(user)",
+          "start_line": 12,
+          "end_line": 12,
+          "captures": {
+            "db_call": "self.db.add(user)"
+          }
+        },
+        {
+          "sample_id": "py_repository_1",
+          "matched_text": "add",
+          "start_line": 12,
+          "end_line": 12,
+          "captures": {
+            "db_operation": "add"
+          }
+        }
+      ]
+    },
+    "overall_success_rate": 0.13043478260869565
+  },
+  "complete": {
+    "evaluation_timestamp": 1761977793.3743167,
+    "evaluation_duration_seconds": 12.599377393722534,
+    "embedding_comparison": {
+      "dataset_stats": {
+        "total_samples": 7,
+        "total_similarity_pairs": 5,
+        "languages": {
+          "python": 3,
+          "javascript": 3,
+          "typescript": 1
+        },
+        "categories": {
+          "async_function": 3,
+          "factory_pattern": 2,
+          "repository_pattern": 2
+        },
+        "cross_language_pairs": 4
+      },
+      "models": {
+        "sentence_transformers": {
+          "model_name": "sentence-transformers/all-mpnet-base-v2",
+          "precision": 1.0,
+          "recall": 0.8,
+          "f1_score": 0.8888888888888888,
+          "avg_similarity_accuracy": "0.942694",
+          "encoding_time_ms": 301.84483528137207,
+          "memory_usage_mb": 0.0205078125,
+          "cross_language_accuracy": "0.83293766"
+        },
+        "unixcoder": {
+          "model_name": "unixcoder/microsoft/unixcoder-base",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1_score": 1.0,
+          "avg_similarity_accuracy": "0.8910961",
+          "encoding_time_ms": 72.44682312011719,
+          "memory_usage_mb": 0.0205078125,
+          "cross_language_accuracy": "0.768216"
+        }
+      },
+      "comparison": {
+        "availability": {
+          "sentence_transformers": true,
+          "unixcoder": true
+        },
+        "performance": {
+          "encoding_time": {
+            "sentence_transformers": 301.84483528137207,
+            "unixcoder": 72.44682312011719,
+            "winner": "unixcoder"
+          },
+          "memory_usage": {
+            "sentence_transformers": 0.0205078125,
+            "unixcoder": 0.0205078125,
+            "winner": "unixcoder"
+          }
+        },
+        "accuracy": {
+          "f1_score": {
+            "sentence_transformers": 0.8888888888888888,
+            "unixcoder": 1.0,
+            "winner": "unixcoder"
+          },
+          "similarity_accuracy": {
+            "sentence_transformers": "0.942694",
+            "unixcoder": "0.8910961",
+            "winner": "sentence_transformers"
+          },
+          "cross_language_accuracy": {
+            "sentence_transformers": "0.83293766",
+            "unixcoder": "0.768216",
+            "winner": "sentence_transformers"
+          }
+        },
+        "recommendations": []
+      },
+      "recommendations": {
+        "primary_recommendation": "switch_to_unixcoder",
+        "reasoning": [
+          "UniXcoder wins 3/5 metrics"
+        ],
+        "trade_offs": {
+          "sentence_transformers": {
+            "pros": [
+              "Proven stability",
+              "Good general-purpose performance",
+              "Easy integration"
+            ],
+            "cons": [
+              "Not code-specific",
+              "May miss code semantics"
+            ]
+          },
+          "unixcoder": {
+            "pros": [
+              "Code-specific training",
+              "Better code understanding",
+              "Cross-language awareness"
+            ],
+            "cons": [
+              "Larger model size",
+              "More complex integration",
+              "Potential stability issues"
+            ]
+          }
+        },
+        "next_steps": [
+          "Monitor performance in production",
+          "Consider hybrid approach for different use cases",
+          "Evaluate on larger dataset if needed"
+        ],
+        "risk_assessment": {}
+      }
+    },
+    "query_pattern_evaluation": {
+      "patterns_tested": 23,
+      "successful_matches": 3,
+      "languages": {
+        "python": {
+          "patterns_available": 4,
+          "samples_tested": 3,
+          "successful_matches": 3
+        },
+        "javascript": {
+          "patterns_available": 3,
+          "samples_tested": 3,
+          "successful_matches": 0
+        },
+        "typescript": {
+          "patterns_available": 2,
+          "samples_tested": 1,
+          "successful_matches": 0
+        }
+      },
+      "pattern_effectiveness": {
+        "async_functions": {
+          "total_tests": 6,
+          "successful_matches": 1,
+          "languages": [
+            "javascript",
+            "python"
+          ],
+          "success_rate": 0.16666666666666666
+        },
+        "factory_methods": {
+          "total_tests": 3,
+          "successful_matches": 0,
+          "languages": [
+            "python"
+          ],
+          "success_rate": 0.0
+        },
+        "repository_crud": {
+          "total_tests": 3,
+          "successful_matches": 1,
+          "languages": [
+            "python"
+          ],
+          "success_rate": 0.3333333333333333
+        },
+        "decorator_patterns": {
+          "total_tests": 3,
+          "successful_matches": 1,
+          "languages": [
+            "python"
+          ],
+          "success_rate": 0.3333333333333333
+        },
+        "factory_classes": {
+          "total_tests": 3,
+          "successful_matches": 0,
+          "languages": [
+            "javascript"
+          ],
+          "success_rate": 0.0
+        },
+        "promise_chains": {
+          "total_tests": 3,
+          "successful_matches": 0,
+          "languages": [
+            "javascript"
+          ],
+          "success_rate": 0.0
+        },
+        "interface_implementations": {
+          "total_tests": 1,
+          "successful_matches": 0,
+          "languages": [
+            "typescript"
+          ],
+          "success_rate": 0.0
+        },
+        "generic_functions": {
+          "total_tests": 1,
+          "successful_matches": 0,
+          "languages": [
+            "typescript"
+          ],
+          "success_rate": 0.0
+        }
+      },
+      "sample_matches": {
+        "python_async_functions": [
+          {
+            "sample_id": "py_async_1",
+            "matched_text": "async def fetch_user_data(user_id: int) -> dict:\n    \"\"\"Fetch user data with error handling.\"\"\"\n    ...",
+            "start_line": 2,
+            "end_line": 10,
+            "captures": {
+              "async_like_function": "async def fetch_user_data(user_id: int) -> dict:\n    \"\"\"Fetch user data with error handling.\"\"\"\n    try:\n        async with aiohttp.ClientSession() as session:\n            async with session.get(f\"/api/users/{user_id}\") as response:\n                return await response.json()\n    except Exception as e:\n        logger.error(f\"Failed to fetch user {user_id}: {e}\")\n        raise"
+            }
+          },
+          {
+            "sample_id": "py_async_1",
+            "matched_text": "fetch_user_data",
+            "start_line": 2,
+            "end_line": 2,
+            "captures": {
+              "function_name": "fetch_user_data"
+            }
+          },
+          {
+            "sample_id": "py_async_1",
+            "matched_text": "try:\n        async with aiohttp.ClientSession() as session:\n            async with session.get(f\"/ap...",
+            "start_line": 4,
+            "end_line": 10,
+            "captures": {
+              "try_block": "try:\n        async with aiohttp.ClientSession() as session:\n            async with session.get(f\"/api/users/{user_id}\") as response:\n                return await response.json()\n    except Exception as e:\n        logger.error(f\"Failed to fetch user {user_id}: {e}\")\n        raise"
+            }
+          }
+        ],
+        "python_decorator_patterns": [
+          {
+            "sample_id": "py_factory_1",
+            "matched_text": "@staticmethod\n    def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\"...",
+            "start_line": 5,
+            "end_line": 12,
+            "captures": {
+              "decorated_def": "@staticmethod\n    def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\":\n            return AdminUser(**kwargs)\n        elif user_type == \"regular\":\n            return RegularUser(**kwargs)\n        else:\n            raise ValueError(f\"Unknown user type: {user_type}\")"
+            }
+          },
+          {
+            "sample_id": "py_factory_1",
+            "matched_text": "@staticmethod",
+            "start_line": 5,
+            "end_line": 5,
+            "captures": {
+              "decorator": "@staticmethod"
+            }
+          },
+          {
+            "sample_id": "py_factory_1",
+            "matched_text": "staticmethod",
+            "start_line": 5,
+            "end_line": 5,
+            "captures": {
+              "decorator_name": "staticmethod"
+            }
+          },
+          {
+            "sample_id": "py_factory_1",
+            "matched_text": "def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\":\n            retu...",
+            "start_line": 6,
+            "end_line": 12,
+            "captures": {
+              "decorated_function": "def create_user(user_type: str, **kwargs) -> User:\n        if user_type == \"admin\":\n            return AdminUser(**kwargs)\n        elif user_type == \"regular\":\n            return RegularUser(**kwargs)\n        else:\n            raise ValueError(f\"Unknown user type: {user_type}\")"
+            }
+          },
+          {
+            "sample_id": "py_factory_1",
+            "matched_text": "create_user",
+            "start_line": 6,
+            "end_line": 6,
+            "captures": {
+              "function_name": "create_user"
+            }
+          }
+        ],
+        "python_repository_crud": [
+          {
+            "sample_id": "py_repository_1",
+            "matched_text": "class UserRepository:\n    \"\"\"Repository for user data access.\"\"\"\n    \n    def __init__(self, db_sess...",
+            "start_line": 2,
+            "end_line": 22,
+            "captures": {
+              "repository_class": "class UserRepository:\n    \"\"\"Repository for user data access.\"\"\"\n    \n    def __init__(self, db_session):\n        self.db = db_session\n    \n    async def find_by_id(self, user_id: int) -> Optional[User]:\n        return await self.db.query(User).filter(User.id == user_id).first()\n    \n    async def save(self, user: User) -> User:\n        self.db.add(user)\n        await self.db.commit()\n        return user\n    \n    async def delete(self, user_id: int) -> bool:\n        user = await self.find_by_id(user_id)\n        if user:\n            await self.db.delete(user)\n            await self.db.commit()\n            return True\n        return False"
+            }
+          },
+          {
+            "sample_id": "py_repository_1",
+            "matched_text": "UserRepository",
+            "start_line": 2,
+            "end_line": 2,
+            "captures": {
+              "class_name": "UserRepository"
+            }
+          },
+          {
+            "sample_id": "py_repository_1",
+            "matched_text": "async def save(self, user: User) -> User:\n        self.db.add(user)\n        await self.db.commit()\n ...",
+            "start_line": 11,
+            "end_line": 14,
+            "captures": {
+              "crud_method": "async def save(self, user: User) -> User:\n        self.db.add(user)\n        await self.db.commit()\n        return user"
+            }
+          },
+          {
+            "sample_id": "py_repository_1",
+            "matched_text": "save",
+            "start_line": 11,
+            "end_line": 11,
+            "captures": {
+              "method_name": "save"
+            }
+          },
+          {
+            "sample_id": "py_repository_1",
+            "matched_text": "self.db.add(user)",
+            "start_line": 12,
+            "end_line": 12,
+            "captures": {
+              "db_call": "self.db.add(user)"
+            }
+          },
+          {
+            "sample_id": "py_repository_1",
+            "matched_text": "add",
+            "start_line": 12,
+            "end_line": 12,
+            "captures": {
+              "db_operation": "add"
+            }
+          }
+        ]
+      },
+      "overall_success_rate": 0.13043478260869565
+    },
+    "executive_summary": {
+      "key_findings": [
+        "UniXcoder successfully evaluated and compared",
+        "Tree-sitter queries need refinement"
+      ],
+      "recommendations": {
+        "embedding_model": "switch_to_unixcoder",
+        "query_patterns": "refine_and_retry",
+        "next_actions": [
+          "Implement recommended embedding model",
+          "Deploy Tree-sitter query patterns for production use",
+          "Monitor performance metrics in production",
+          "Consider expanding evaluation dataset"
+        ]
+      },
+      "success_metrics": {
+        "embedding_evaluation_completed": true,
+        "query_patterns_tested": 23,
+        "cross_language_similarity_evaluated": true,
+        "multi_language_support": true
+      },
+      "risk_assessment": {
+        "integration_complexity": "medium",
+        "performance_impact": "low",
+        "maintenance_overhead": "low",
+        "compatibility_risk": "low"
+      }
+    },
+    "technical_details": {
+      "dataset_size": 7,
+      "languages_tested": 3,
+      "similarity_pairs": 5,
+      "query_patterns": 16
+    }
+  }
+}
