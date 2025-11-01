@@ -17,6 +17,10 @@ class SearchRequest(BaseModel):
     directories: Optional[List[str]] = Field(default=None, description="Filter by directory paths")
     exclude_patterns: Optional[List[str]] = Field(default=None, description="Exclude patterns (e.g., ['test', '__pycache__'])")
     min_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Minimum similarity score")
+    # Advanced filters (Story 2.4)
+    authors: Optional[List[str]] = Field(default=None, description="Filter by authors (if metadata available)")
+    modified_after: Optional[str] = Field(default=None, description="ISO 8601 modified time lower bound")
+    modified_before: Optional[str] = Field(default=None, description="ISO 8601 modified time upper bound")
 
 
 class SearchResult(BaseModel):

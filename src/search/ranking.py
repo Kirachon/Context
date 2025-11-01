@@ -9,6 +9,8 @@ import math
 from typing import List, Dict, Any
 from datetime import datetime
 
+from src.search.feedback import get_feedback_manager
+
 from src.search.models import SearchResult
 
 logger = logging.getLogger(__name__)
@@ -24,10 +26,12 @@ class RankingService:
     def __init__(self):
         """Initialize ranking service"""
         # Ranking weights
-        self.similarity_weight = 0.7
-        self.file_size_weight = 0.1
-        self.file_type_weight = 0.1
+        self.similarity_weight = 0.6
+        self.keyword_weight = 0.2
+        self.file_size_weight = 0.05
+        self.file_type_weight = 0.05
         self.freshness_weight = 0.1
+        self.feedback_weight = 0.1
         
         # File type preferences (higher = better)
         self.file_type_scores = {
@@ -91,14 +95,30 @@ class RankingService:
         # Freshness component (prefer recently indexed files)
         freshness_component = self._calculate_freshness_score(result.metadata) * self.freshness_weight
         
+        # Keyword match component (hybrid search)
+        keyword_score = 0.0
+        try:
+            keyword_score = float(result.metadata.get("keyword_score", 0.0)) if result.metadata else 0.0
+        except Exception:
+            keyword_score = 0.0
+        keyword_component = keyword_score * self.keyword_weight
+
         # Combine components
         composite_score = (
             similarity_component +
+            keyword_component +
             file_size_component +
             file_type_component +
             freshness_component
         )
-        
+
+        # Apply feedback-based boost (multiplicative)
+        try:
+            fb_boost = get_feedback_manager().get_score_boost(result.file_path)
+            composite_score *= (1.0 + self.feedback_weight * fb_boost)
+        except Exception:
+            pass
+
         # Ensure score is between 0 and 1
         return max(0.0, min(1.0, composite_score))
     
@@ -225,9 +245,11 @@ class RankingService:
         """
         return {
             "similarity_weight": self.similarity_weight,
+            "keyword_weight": self.keyword_weight,
             "file_size_weight": self.file_size_weight,
             "file_type_weight": self.file_type_weight,
-            "freshness_weight": self.freshness_weight
+            "freshness_weight": self.freshness_weight,
+            "feedback_weight": self.feedback_weight,
         }
     
     def update_ranking_weights(self, weights: Dict[str, float]):
@@ -239,13 +261,17 @@ class RankingService:
         """
         if "similarity_weight" in weights:
             self.similarity_weight = weights["similarity_weight"]
+        if "keyword_weight" in weights:
+            self.keyword_weight = weights["keyword_weight"]
         if "file_size_weight" in weights:
             self.file_size_weight = weights["file_size_weight"]
         if "file_type_weight" in weights:
             self.file_type_weight = weights["file_type_weight"]
         if "freshness_weight" in weights:
             self.freshness_weight = weights["freshness_weight"]
-        
+        if "feedback_weight" in weights:
+            self.feedback_weight = weights["feedback_weight"]
+
         logger.info(f"Updated ranking weights: {self.get_ranking_weights()}")
 
 
