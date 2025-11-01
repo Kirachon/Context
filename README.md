@@ -2,6 +2,13 @@
 
 Advanced code analysis and semantic search system with multi-language AST parsing.
 
+## 📚 Documentation
+
+- **[🚀 Quick Start Guide](QUICKSTART.md)** - Deploy in under 5 minutes
+- **[📋 Production Readiness Assessment](PRODUCTION_READINESS_ASSESSMENT.md)** - Deployment checklist and status
+- **[🔧 Deployment Guide](DEPLOYMENT_GUIDE.md)** - Detailed deployment instructions
+- **[🌳 Tree-sitter Installation](docs/INSTALL_TREE_SITTER.md)** - AST parser setup
+
 ## Features
 
 - **Multi-language AST parsing** for Python, JavaScript, TypeScript, Java, C++, Go, and Rust
