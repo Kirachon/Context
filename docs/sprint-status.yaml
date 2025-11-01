@@ -55,7 +55,7 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Semantic Search & Code Intelligence
-  epic-2: contexted
+  epic-2: done
   2-1-advanced-code-parsing-and-ast-analysis: done
   2-2-enhanced-vector-embeddings-with-code-context: done
   2-3-advanced-search-filtering-and-ranking: done
