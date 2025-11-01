@@ -31,4 +31,3 @@ def decrypt(token: bytes, key: Optional[bytes]) -> bytes:
         return token  # no-op
     f = Fernet(key)
     return f.decrypt(token)
-

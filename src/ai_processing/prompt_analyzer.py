@@ -41,4 +41,3 @@ def get_prompt_analyzer() -> PromptAnalyzer:
     if _prompt_analyzer is None:
         _prompt_analyzer = PromptAnalyzer()
     return _prompt_analyzer
-

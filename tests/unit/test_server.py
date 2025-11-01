@@ -21,13 +21,15 @@ def client():
 def mock_env():
     """Mock environment variables for testing"""
     original_env = os.environ.copy()
-    os.environ.update({
-        "DATABASE_URL": "postgresql://context:password@localhost:5432/context_test",
-        "REDIS_URL": "redis://localhost:6379/1",
-        "QDRANT_HOST": "localhost",
-        "OLLAMA_BASE_URL": "http://localhost:11434",
-        "ENVIRONMENT": "test"
-    })
+    os.environ.update(
+        {
+            "DATABASE_URL": "postgresql://context:password@localhost:5432/context_test",
+            "REDIS_URL": "redis://localhost:6379/1",
+            "QDRANT_HOST": "localhost",
+            "OLLAMA_BASE_URL": "http://localhost:11434",
+            "ENVIRONMENT": "test",
+        }
+    )
     yield
     os.environ.clear()
     os.environ.update(original_env)
@@ -98,7 +100,9 @@ def test_health_endpoint_services_status(client, mock_env):
 
     # Each service should have a boolean status
     for service_name, status in services.items():
-        assert isinstance(status, bool), f"Service {service_name} status should be boolean"
+        assert isinstance(
+            status, bool
+        ), f"Service {service_name} status should be boolean"
 
 
 def test_health_endpoint_healthy_status(client, mock_env):
@@ -141,7 +145,8 @@ def test_health_endpoint_timestamp_format(client, mock_env):
 
     # Verify timestamp can be parsed (basic validation)
     from datetime import datetime
-    parsed_timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+
+    parsed_timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     assert isinstance(parsed_timestamp, datetime)
 
 

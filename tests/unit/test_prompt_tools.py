@@ -1,6 +1,7 @@
 """
 Unit tests for Prompt MCP Tools (Epic 3)
 """
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from src.mcp_server.tools.prompt_tools import register_prompt_tools
@@ -10,11 +11,14 @@ from src.mcp_server.tools.prompt_tools import register_prompt_tools
 def mock_mcp():
     mcp = MagicMock()
     registered = []
+
     def decorator_factory():
         def dec(func):
             registered.append(func)
             return func
+
         return dec
+
     mcp.tool = MagicMock(side_effect=decorator_factory)
     mcp._tools = registered
     return mcp
@@ -39,8 +43,10 @@ async def test_prompt_analyze_tool(mock_mcp):
 async def test_prompt_generate_tool(mock_mcp):
     register_prompt_tools(mock_mcp)
     fn = mock_mcp._tools[2]
-    with patch('src.ai_processing.ollama_client.OllamaClient.generate_response', new=AsyncMock(return_value='ok')):
+    with patch(
+        "src.ai_processing.ollama_client.OllamaClient.generate_response",
+        new=AsyncMock(return_value="ok"),
+    ):
         result = await fn("hello", model="llama3")
     assert result["success"] is True
     assert result["response"] == "ok"
-

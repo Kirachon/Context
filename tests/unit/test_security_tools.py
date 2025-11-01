@@ -1,6 +1,7 @@
 """
 Unit tests for Security MCP Tools (Epic 4)
 """
+
 import pytest
 from unittest.mock import MagicMock
 from src.mcp_server.tools.security_tools import register_security_tools
@@ -10,11 +11,14 @@ from src.mcp_server.tools.security_tools import register_security_tools
 def mock_mcp():
     mcp = MagicMock()
     regs = []
+
     def deco_factory():
         def dec(fn):
             regs.append(fn)
             return fn
+
         return dec
+
     mcp.tool = MagicMock(side_effect=deco_factory)
     mcp._tools = regs
     return mcp
@@ -35,4 +39,3 @@ async def test_set_and_get_role(mock_mcp):
     assert res["success"]
     res2 = await get_role_fn()
     assert res2["role"] == "admin"
-

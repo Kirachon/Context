@@ -1,6 +1,7 @@
 """
 Unit tests for MCP Query Understanding Tools (Story 2.6)
 """
+
 import pytest
 from unittest.mock import MagicMock
 
@@ -12,13 +13,14 @@ def mock_mcp():
     """Create a mock FastMCP instance"""
     mcp = MagicMock()
     registered_tools = []
-    
+
     def tool_decorator_factory():
         def tool_decorator(func):
             registered_tools.append(func)
             return func
+
         return tool_decorator
-    
+
     mcp.tool = MagicMock(side_effect=tool_decorator_factory)
     mcp._registered_tools = registered_tools
     return mcp
@@ -35,10 +37,10 @@ def test_register_query_tools(mock_mcp):
 async def test_query_classify(mock_mcp):
     """Test query classification tool"""
     register_query_tools(mock_mcp)
-    
+
     # Get the registered function (first tool: query_classify)
     tool_func = mock_mcp._registered_tools[0]
-    
+
     result = await tool_func("find all authentication functions")
     assert result["success"] is True
     assert "intent" in result
@@ -51,10 +53,10 @@ async def test_query_classify(mock_mcp):
 async def test_query_enhance(mock_mcp):
     """Test query enhancement tool"""
     register_query_tools(mock_mcp)
-    
+
     # Get the registered function (second tool: query_enhance)
     tool_func = mock_mcp._registered_tools[1]
-    
+
     result = await tool_func("find authentication code", recent_files=["src/auth.py"])
     assert result["success"] is True
     assert "enhanced_query" in result
@@ -66,10 +68,10 @@ async def test_query_enhance(mock_mcp):
 async def test_query_followup(mock_mcp):
     """Test follow-up question generation"""
     register_query_tools(mock_mcp)
-    
+
     # Get the registered function (third tool: query_followup)
     tool_func = mock_mcp._registered_tools[2]
-    
+
     result = await tool_func("find database queries")
     assert result["success"] is True
     assert "follow_up_questions" in result
@@ -80,10 +82,10 @@ async def test_query_followup(mock_mcp):
 async def test_query_history_add(mock_mcp):
     """Test adding query to history"""
     register_query_tools(mock_mcp)
-    
+
     # Get the registered function (fourth tool: query_history_add)
     tool_func = mock_mcp._registered_tools[3]
-    
+
     result = await tool_func("find functions", "search", 5, tags=["important"])
     assert result["success"] is True
     assert "total_in_history" in result
@@ -94,15 +96,15 @@ async def test_query_history_add(mock_mcp):
 async def test_query_history_get(mock_mcp):
     """Test retrieving query history"""
     register_query_tools(mock_mcp)
-    
+
     # Add some queries first
     add_tool = mock_mcp._registered_tools[3]
     await add_tool("query 1", "search", 5)
     await add_tool("query 2", "debug", 3)
-    
+
     # Get the registered function (fifth tool: query_history_get)
     get_tool = mock_mcp._registered_tools[4]
-    
+
     result = await get_tool(limit=10)
     assert result["success"] is True
     assert "queries" in result
@@ -240,4 +242,3 @@ async def test_query_tools_workflow(mock_mcp):
     get_result = await get_tool(limit=10)
     assert get_result["success"] is True
     assert get_result["count"] >= 1
-

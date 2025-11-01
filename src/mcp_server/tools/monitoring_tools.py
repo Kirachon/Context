@@ -50,6 +50,7 @@ def register_monitoring_tools(mcp: FastMCP):
             "success": True,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
     @mcp.tool()
     @instrument_tool("metrics_summary")
     async def metrics_summary() -> Dict[str, Any]:
@@ -65,5 +66,3 @@ def register_monitoring_tools(mcp: FastMCP):
             "histograms": histograms,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-
-

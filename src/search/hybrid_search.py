@@ -15,10 +15,9 @@ def rerank(results: List[SearchResult], alpha: float = 0.7) -> List[SearchResult
     """
     rescored: List[SearchResult] = []
     for r in results:
-        lex = r.metadata.get('lexical_score', r.similarity_score)  # fallback
+        lex = r.metadata.get("lexical_score", r.similarity_score)  # fallback
         sem = r.similarity_score
-        hybrid = alpha*sem + (1-alpha)*lex
+        hybrid = alpha * sem + (1 - alpha) * lex
         r.similarity_score = hybrid
         rescored.append(r)
     return sorted(rescored, key=lambda x: x.similarity_score, reverse=True)
-

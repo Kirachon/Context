@@ -3,6 +3,7 @@ Logging Manager (Enterprise-ready)
 
 Centralized logging configuration with optional JSON formatting.
 """
+
 import logging
 import json
 import sys
@@ -11,7 +12,9 @@ from datetime import datetime, timezone
 from typing import Optional
 
 # Correlation ID context var
-_correlation_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("correlation_id", default=None)
+_correlation_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "correlation_id", default=None
+)
 
 
 class JsonFormatter(logging.Formatter):
@@ -38,10 +41,14 @@ def configure_logging(level: str = "INFO", fmt: str = "json"):
     if fmt.lower() == "json":
         handler.setFormatter(JsonFormatter())
     else:
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+        )
     logging.root.addHandler(handler)
 
+
 # Correlation ID helpers
+
 
 def set_correlation_id(correlation_id: Optional[str]) -> None:
     _correlation_id.set(correlation_id)

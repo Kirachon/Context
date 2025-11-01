@@ -3,6 +3,7 @@ MCP Pattern Search Tools
 
 Expose production-grade Tree-sitter pattern search via MCP.
 """
+
 import sys
 import os
 import logging
@@ -38,15 +39,20 @@ def register_pattern_search_tools(mcp: FastMCP):
             directory_path: Directory to scan
             patterns: Optional list of pattern names to apply (default: all)
             languages: Optional list of languages (default: all supported)
-            include_globs: Optional include filters (e.g., ["src/**/*.py"]) 
-            exclude_globs: Optional exclude filters (e.g., ["**/vendor/**"]) 
+            include_globs: Optional include filters (e.g., ["src/**/*.py"])
+            exclude_globs: Optional exclude filters (e.g., ["**/vendor/**"])
             max_files: Max files to scan (default: 500)
         """
-        logger.info(f"MCP pattern_search_directory: {directory_path} patterns={patterns} languages={languages}")
+        logger.info(
+            f"MCP pattern_search_directory: {directory_path} patterns={patterns} languages={languages}"
+        )
         try:
             root = Path(directory_path)
             if not root.exists() or not root.is_dir():
-                return {"error": f"Invalid directory: {directory_path}", "timestamp": datetime.utcnow().isoformat()}
+                return {
+                    "error": f"Invalid directory: {directory_path}",
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
             service = get_pattern_search_service()
             results = service.search_directory(
                 root,
@@ -75,7 +81,11 @@ def register_pattern_search_tools(mcp: FastMCP):
             }
         except Exception as e:
             logger.error(f"pattern_search_directory failed: {e}", exc_info=True)
-            return {"error": str(e), "results": [], "timestamp": datetime.utcnow().isoformat()}
+            return {
+                "error": str(e),
+                "results": [],
+                "timestamp": datetime.utcnow().isoformat(),
+            }
 
     @mcp.tool()
     async def pattern_search_code(
@@ -86,7 +96,9 @@ def register_pattern_search_tools(mcp: FastMCP):
         """
         Run pattern search on a code snippet.
         """
-        logger.info(f"MCP pattern_search_code: language={language}, patterns={patterns}")
+        logger.info(
+            f"MCP pattern_search_code: language={language}, patterns={patterns}"
+        )
         try:
             service = get_pattern_search_service()
             results = service.search_code(language, code, patterns)
@@ -109,5 +121,8 @@ def register_pattern_search_tools(mcp: FastMCP):
             }
         except Exception as e:
             logger.error(f"pattern_search_code failed: {e}", exc_info=True)
-            return {"error": str(e), "results": [], "timestamp": datetime.utcnow().isoformat()}
-
+            return {
+                "error": str(e),
+                "results": [],
+                "timestamp": datetime.utcnow().isoformat(),
+            }

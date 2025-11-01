@@ -5,7 +5,7 @@ Simple role-based authorization helpers and decorator.
 """
 
 import functools
-from typing import Callable, Optional, List
+from typing import Callable, List
 
 
 class Roles:
@@ -16,6 +16,7 @@ class Roles:
 
 class AuthzState:
     """In-memory role store (for demo/testing)."""
+
     def __init__(self):
         self._role: str = Roles.DEVELOPER
 
@@ -41,12 +42,14 @@ def set_role(role: str):
 
 def require_role(allowed: List[str]) -> Callable:
     """Decorator requiring one of the roles."""
+
     def decorator(func: Callable):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             if get_role() not in allowed:
                 raise PermissionError("insufficient role")
             return await func(*args, **kwargs)
-        return wrapper
-    return decorator
 
+        return wrapper
+
+    return decorator

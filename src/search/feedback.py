@@ -3,6 +3,7 @@ Search Feedback Manager (Story 2.4)
 
 Lightweight in-memory feedback system to adjust ranking quality over time.
 """
+
 from __future__ import annotations
 
 import math
@@ -51,4 +52,3 @@ def get_feedback_manager() -> FeedbackManager:
     if _feedback_manager is None:
         _feedback_manager = FeedbackManager()
     return _feedback_manager
-

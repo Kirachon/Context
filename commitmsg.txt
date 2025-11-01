@@ -1,0 +1,6 @@
+Merge main into feat/2-6-intelligent-query-understanding
+
+Resolved conflicts in src/analysis/similarity.py:
+- Combined ratio-based LCP logic from main with token overlap from feature branch
+- Unified type normalization to use main approach with hashmap mapping
+- All tests passing

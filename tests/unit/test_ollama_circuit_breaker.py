@@ -1,7 +1,4 @@
-import asyncio
-import types
 import pytest
-import sys
 
 from src.ai_processing.ollama_client import OllamaClient
 from src.config.settings import settings
@@ -44,15 +41,19 @@ async def test_circuit_opens_and_recovers(monkeypatch):
         class ClientTimeout:
             def __init__(self, total):
                 self.total = total
+
         class ClientSession:
             def __init__(self, timeout=None):
                 self.timeout = timeout
+
             async def __aenter__(self):
                 return DummySession(should_fail=True)
+
             async def __aexit__(self, exc_type, exc, tb):
                 return False
 
     import src.ai_processing.ollama_client as oc
+
     monkeypatch.setattr(oc, "aiohttp", AioHTTPMod, raising=False)
 
     # Two failures to open the circuit
@@ -70,16 +71,19 @@ async def test_circuit_opens_and_recovers(monkeypatch):
         class ClientTimeout:
             def __init__(self, total):
                 self.total = total
+
         class ClientSession:
             def __init__(self, timeout=None):
                 self.timeout = timeout
+
             async def __aenter__(self):
                 return DummySession(should_fail=False)
+
             async def __aexit__(self, exc_type, exc, tb):
                 return False
+
     monkeypatch.setattr(oc, "aiohttp", AioHTTPMod2, raising=False)
 
     # After cooldown 0, next call allowed and should succeed, closing circuit
     resp = await client.generate_response("p4")
     assert resp == "ok"
-

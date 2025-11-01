@@ -4,7 +4,7 @@ AST Search Models
 Enhanced search models for AST metadata and code structure search.
 """
 
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from enum import Enum
 from datetime import datetime
@@ -12,6 +12,7 @@ from datetime import datetime
 
 class SymbolType(str, Enum):
     """Types of code symbols."""
+
     FUNCTION = "function"
     METHOD = "method"
     CLASS = "class"
@@ -28,6 +29,7 @@ class SymbolType(str, Enum):
 
 class SearchScope(str, Enum):
     """Search scope for AST elements."""
+
     ALL = "all"
     SYMBOLS = "symbols"
     CLASSES = "classes"
@@ -37,31 +39,62 @@ class SearchScope(str, Enum):
 
 class ASTSearchRequest(BaseModel):
     """Enhanced search request for AST metadata."""
-    query: str = Field(..., min_length=1, max_length=500, description="Natural language search query")
-    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+
+    query: str = Field(
+        ..., min_length=1, max_length=500, description="Natural language search query"
+    )
+    limit: int = Field(
+        default=10, ge=1, le=100, description="Maximum number of results"
+    )
 
     # Standard filters
-    file_types: Optional[List[str]] = Field(default=None, description="Filter by file extensions")
-    directories: Optional[List[str]] = Field(default=None, description="Filter by directory paths")
-    exclude_patterns: Optional[List[str]] = Field(default=None, description="Exclude patterns")
-    min_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Minimum similarity score")
+    file_types: Optional[List[str]] = Field(
+        default=None, description="Filter by file extensions"
+    )
+    directories: Optional[List[str]] = Field(
+        default=None, description="Filter by directory paths"
+    )
+    exclude_patterns: Optional[List[str]] = Field(
+        default=None, description="Exclude patterns"
+    )
+    min_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Minimum similarity score"
+    )
 
     # AST-specific filters
-    symbol_types: Optional[List[SymbolType]] = Field(default=None, description="Filter by symbol types")
-    languages: Optional[List[str]] = Field(default=None, description="Filter by programming languages")
-    search_scope: SearchScope = Field(default=SearchScope.ALL, description="Search scope")
+    symbol_types: Optional[List[SymbolType]] = Field(
+        default=None, description="Filter by symbol types"
+    )
+    languages: Optional[List[str]] = Field(
+        default=None, description="Filter by programming languages"
+    )
+    search_scope: SearchScope = Field(
+        default=SearchScope.ALL, description="Search scope"
+    )
 
     # Advanced filters
-    has_parameters: Optional[bool] = Field(default=None, description="Filter functions with/without parameters")
-    has_return_type: Optional[bool] = Field(default=None, description="Filter functions with/without return types")
+    has_parameters: Optional[bool] = Field(
+        default=None, description="Filter functions with/without parameters"
+    )
+    has_return_type: Optional[bool] = Field(
+        default=None, description="Filter functions with/without return types"
+    )
     is_async: Optional[bool] = Field(default=None, description="Filter async functions")
     is_static: Optional[bool] = Field(default=None, description="Filter static methods")
-    is_abstract: Optional[bool] = Field(default=None, description="Filter abstract classes/methods")
-    visibility: Optional[str] = Field(default=None, description="Filter by visibility (public, private, protected)")
+    is_abstract: Optional[bool] = Field(
+        default=None, description="Filter abstract classes/methods"
+    )
+    visibility: Optional[str] = Field(
+        default=None, description="Filter by visibility (public, private, protected)"
+    )
 
     # Relationship filters
-    has_inheritance: Optional[bool] = Field(default=None, description="Filter classes with inheritance")
-    implements_interface: Optional[bool] = Field(default=None, description="Filter classes implementing interfaces")
+    has_inheritance: Optional[bool] = Field(
+        default=None, description="Filter classes with inheritance"
+    )
+    implements_interface: Optional[bool] = Field(
+        default=None, description="Filter classes implementing interfaces"
+    )
 
     @classmethod
     def __get_pydantic_core_schema__(cls, *args, **kwargs):
@@ -69,7 +102,7 @@ class ASTSearchRequest(BaseModel):
 
     from pydantic import field_validator
 
-    @field_validator('limit', mode='before')
+    @field_validator("limit", mode="before")
     @classmethod
     def _clamp_limit(cls, v):
         try:
@@ -82,7 +115,7 @@ class ASTSearchRequest(BaseModel):
             return 100
         return iv
 
-    @field_validator('min_score', mode='before')
+    @field_validator("min_score", mode="before")
     @classmethod
     def _clamp_min_score(cls, v):
         try:
@@ -95,7 +128,6 @@ class ASTSearchRequest(BaseModel):
             return 1.0
         return fv
 
-
     @classmethod
     def model_validate(cls, obj):
         return super().model_validate(obj)
@@ -104,17 +136,19 @@ class ASTSearchRequest(BaseModel):
     def model_post_init(self, __context):
         # Clamp limit
         if self.limit < 1:
-            object.__setattr__(self, 'limit', 1)
+            object.__setattr__(self, "limit", 1)
         elif self.limit > 100:
-            object.__setattr__(self, 'limit', 100)
+            object.__setattr__(self, "limit", 100)
         # Clamp min_score
         if self.min_score < 0.0:
-            object.__setattr__(self, 'min_score', 0.0)
+            object.__setattr__(self, "min_score", 0.0)
         elif self.min_score > 1.0:
-            object.__setattr__(self, 'min_score', 1.0)
+            object.__setattr__(self, "min_score", 1.0)
+
 
 class ASTSearchResult(BaseModel):
     """Enhanced search result with AST metadata."""
+
     # Basic file information
     file_path: str = Field(..., description="Path to the file")
     file_name: str = Field(..., description="Name of the file")
@@ -129,17 +163,25 @@ class ASTSearchResult(BaseModel):
 
     # Code context
     snippet: Optional[str] = Field(default=None, description="Code snippet")
-    signature: Optional[str] = Field(default=None, description="Function/method signature")
+    signature: Optional[str] = Field(
+        default=None, description="Function/method signature"
+    )
     docstring: Optional[str] = Field(default=None, description="Documentation string")
 
     # Symbol details
-    parameters: Optional[List[Dict[str, Any]]] = Field(default=None, description="Function parameters")
+    parameters: Optional[List[Dict[str, Any]]] = Field(
+        default=None, description="Function parameters"
+    )
     return_type: Optional[str] = Field(default=None, description="Return type")
-    decorators: Optional[List[str]] = Field(default=None, description="Decorators/annotations")
+    decorators: Optional[List[str]] = Field(
+        default=None, description="Decorators/annotations"
+    )
 
     # Class-specific information
     base_classes: Optional[List[str]] = Field(default=None, description="Base classes")
-    interfaces: Optional[List[str]] = Field(default=None, description="Implemented interfaces")
+    interfaces: Optional[List[str]] = Field(
+        default=None, description="Implemented interfaces"
+    )
 
     # Modifiers
     visibility: Optional[str] = Field(default=None, description="Visibility modifier")
@@ -148,11 +190,14 @@ class ASTSearchResult(BaseModel):
     is_async: Optional[bool] = Field(default=None, description="Is async")
 
     # Additional metadata
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
 
 
 class ASTSearchResponse(BaseModel):
     """Enhanced search response with AST metadata."""
+
     query: str = Field(..., description="Original search query")
     results: List[ASTSearchResult] = Field(..., description="Search results")
     total_results: int = Field(..., ge=0, description="Total number of results found")
@@ -164,14 +209,19 @@ class ASTSearchResponse(BaseModel):
     imports_found: int = Field(default=0, description="Number of imports found")
 
     # Applied filters
-    filters_applied: Dict[str, Any] = Field(default_factory=dict, description="Applied filters")
-    languages_searched: List[str] = Field(default_factory=list, description="Languages searched")
+    filters_applied: Dict[str, Any] = Field(
+        default_factory=dict, description="Applied filters"
+    )
+    languages_searched: List[str] = Field(
+        default_factory=list, description="Languages searched"
+    )
 
     timestamp: str = Field(..., description="Search timestamp")
 
 
 class SymbolEmbeddingPayload(BaseModel):
     """Payload structure for symbol embeddings in Qdrant."""
+
     # Core identification
     file_path: str
     symbol_name: str
@@ -214,6 +264,7 @@ class SymbolEmbeddingPayload(BaseModel):
 
 class ClassEmbeddingPayload(BaseModel):
     """Payload structure for class embeddings in Qdrant."""
+
     # Core identification
     file_path: str
     class_name: str
@@ -252,6 +303,7 @@ class ClassEmbeddingPayload(BaseModel):
 
 class ImportEmbeddingPayload(BaseModel):
     """Payload structure for import embeddings in Qdrant."""
+
     # Core identification
     file_path: str
     module: str

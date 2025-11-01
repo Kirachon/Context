@@ -35,4 +35,3 @@ def get_response_generator() -> ResponseGenerator:
     if _response_generator is None:
         _response_generator = ResponseGenerator()
     return _response_generator
-

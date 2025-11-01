@@ -2,18 +2,17 @@
 Integration tests for parsing functionality.
 """
 
-import pytest
 from pathlib import Path
-from src.parsing.parser import CodeParser, get_parser
+from src.parsing.parser import get_parser
 from src.parsing.models import Language
 
 
 class TestParsingIntegration:
     """Integration tests for AST parsing."""
-    
+
     def setup_method(self):
         self.parser = get_parser()
-    
+
     def test_parse_python_simple(self):
         """Test parsing simple Python code."""
         code = """
@@ -24,19 +23,22 @@ def hello_world():
 if __name__ == "__main__":
     hello_world()
 """
-        
+
         result = self.parser.parse(Path("test.py"), code)
-        
+
         # Should succeed even without tree-sitter installed (graceful degradation)
         assert result.language == Language.PYTHON
         assert result.file_path == Path("test.py")
         assert result.parse_time_ms >= 0
-        
+
         # If tree-sitter is available, should have AST
         if result.parse_success:
             assert result.ast_root is not None
-            assert result.ast_root.type in ["module", "source_file"]  # depends on parser
-    
+            assert result.ast_root.type in [
+                "module",
+                "source_file",
+            ]  # depends on parser
+
     def test_parse_javascript_simple(self):
         """Test parsing simple JavaScript code."""
         code = """
@@ -47,13 +49,13 @@ function helloWorld() {
 
 helloWorld();
 """
-        
+
         result = self.parser.parse(Path("test.js"), code)
-        
+
         assert result.language == Language.JAVASCRIPT
         assert result.file_path == Path("test.js")
         assert result.parse_time_ms >= 0
-    
+
     def test_parse_typescript_simple(self):
         """Test parsing simple TypeScript code."""
         code = """
@@ -68,13 +70,13 @@ function helloWorld(): Greeting {
 const greeting: Greeting = helloWorld();
 console.log(greeting.message);
 """
-        
+
         result = self.parser.parse(Path("test.ts"), code)
-        
+
         assert result.language == Language.TYPESCRIPT
         assert result.file_path == Path("test.ts")
         assert result.parse_time_ms >= 0
-    
+
     def test_parse_java_simple(self):
         """Test parsing simple Java code."""
         code = """
@@ -88,13 +90,13 @@ public class HelloWorld {
     }
 }
 """
-        
+
         result = self.parser.parse(Path("HelloWorld.java"), code)
-        
+
         assert result.language == Language.JAVA
         assert result.file_path == Path("HelloWorld.java")
         assert result.parse_time_ms >= 0
-    
+
     def test_parse_cpp_simple(self):
         """Test parsing simple C++ code."""
         code = """
@@ -114,13 +116,13 @@ int main() {
     return 0;
 }
 """
-        
+
         result = self.parser.parse(Path("test.cpp"), code)
-        
+
         assert result.language == Language.CPP
         assert result.file_path == Path("test.cpp")
         assert result.parse_time_ms >= 0
-    
+
     def test_parse_go_simple(self):
         """Test parsing simple Go code."""
         code = """
@@ -141,13 +143,13 @@ func main() {
     greeter.Greet()
 }
 """
-        
+
         result = self.parser.parse(Path("test.go"), code)
-        
+
         assert result.language == Language.GO
         assert result.file_path == Path("test.go")
         assert result.parse_time_ms >= 0
-    
+
     def test_parse_rust_simple(self):
         """Test parsing simple Rust code."""
         code = """
@@ -170,13 +172,13 @@ fn main() {
     greeter.greet();
 }
 """
-        
+
         result = self.parser.parse(Path("test.rs"), code)
-        
+
         assert result.language == Language.RUST
         assert result.file_path == Path("test.rs")
         assert result.parse_time_ms >= 0
-    
+
     def test_parse_all_languages_performance(self):
         """Test parsing performance across all languages."""
         test_cases = [
@@ -188,27 +190,29 @@ fn main() {
             (Language.GO, "test.go", "package main\nfunc main() {}"),
             (Language.RUST, "test.rs", "fn main() {}"),
         ]
-        
+
         results = []
         for language, filename, code in test_cases:
             result = self.parser.parse(Path(filename), code)
             results.append(result)
-            
+
             assert result.language == language
             assert result.parse_time_ms >= 0
             # Performance target: should parse in under 100ms for simple code
             if result.parse_success:
-                assert result.parse_time_ms < 100, f"Parsing {filename} took {result.parse_time_ms}ms"
-        
+                assert (
+                    result.parse_time_ms < 100
+                ), f"Parsing {filename} took {result.parse_time_ms}ms"
+
         # At least some parsers should work (even if tree-sitter isn't fully installed)
         successful_parses = sum(1 for r in results if r.parse_success)
         print(f"Successfully parsed {successful_parses}/{len(results)} languages")
-    
+
     def test_error_handling(self):
         """Test error handling for invalid code."""
         # Invalid Python syntax
         result = self.parser.parse(Path("invalid.py"), "def invalid syntax here")
-        
+
         assert result.language == Language.PYTHON
         # Should either succeed (tree-sitter is forgiving) or fail gracefully
         assert isinstance(result.parse_success, bool)
@@ -258,11 +262,13 @@ def main():
 
         # If tree-sitter is available, check symbol extraction
         if result.parse_success and result.ast_root:
-            print(f"Python - Imports: {len(result.imports)}, Classes: {len(result.classes)}, Symbols: {len(result.symbols)}")
+            print(
+                f"Python - Imports: {len(result.imports)}, Classes: {len(result.classes)}, Symbols: {len(result.symbols)}"
+            )
 
     def test_javascript_comprehensive_extraction(self):
         """Test comprehensive JavaScript symbol extraction."""
-        code = '''
+        code = """
 import { EventEmitter } from 'events';
 
 class UserService extends EventEmitter {
@@ -285,7 +291,7 @@ class UserService extends EventEmitter {
 function createUserService(config) {
     return new UserService(config);
 }
-'''
+"""
 
         result = self.parser.parse(Path("user_service.js"), code)
 
@@ -294,7 +300,9 @@ function createUserService(config) {
         assert result.symbol_extraction_time_ms >= 0
 
         if result.parse_success and result.ast_root:
-            print(f"JS - Imports: {len(result.imports)}, Classes: {len(result.classes)}, Symbols: {len(result.symbols)}")
+            print(
+                f"JS - Imports: {len(result.imports)}, Classes: {len(result.classes)}, Symbols: {len(result.symbols)}"
+            )
 
     def test_all_languages_symbol_extraction_performance(self):
         """Test symbol extraction performance across all languages."""
@@ -302,10 +310,18 @@ function createUserService(config) {
             (Language.PYTHON, "test.py", "class Test:\n    def method(self): pass"),
             (Language.JAVASCRIPT, "test.js", "class Test { method() {} }"),
             (Language.TYPESCRIPT, "test.ts", "class Test { method(): void {} }"),
-            (Language.JAVA, "Test.java", "public class Test { public void method() {} }"),
+            (
+                Language.JAVA,
+                "Test.java",
+                "public class Test { public void method() {} }",
+            ),
             (Language.CPP, "test.cpp", "class Test { public: void method(); };"),
             (Language.GO, "test.go", "type Test struct {}\nfunc (t *Test) Method() {}"),
-            (Language.RUST, "test.rs", "struct Test {}\nimpl Test { fn method(&self) {} }"),
+            (
+                Language.RUST,
+                "test.rs",
+                "struct Test {}\nimpl Test { fn method(&self) {} }",
+            ),
         ]
 
         results = []
@@ -319,16 +335,22 @@ function createUserService(config) {
 
             # Performance target: symbol extraction should be fast
             if result.parse_success:
-                assert result.symbol_extraction_time_ms < 50, f"Symbol extraction for {filename} took {result.symbol_extraction_time_ms}ms"
+                assert (
+                    result.symbol_extraction_time_ms < 50
+                ), f"Symbol extraction for {filename} took {result.symbol_extraction_time_ms}ms"
 
         # At least some parsers should work
         successful_parses = sum(1 for r in results if r.parse_success)
-        print(f"Successfully parsed and extracted symbols from {successful_parses}/{len(results)} languages")
+        print(
+            f"Successfully parsed and extracted symbols from {successful_parses}/{len(results)} languages"
+        )
 
         # Print summary
         for result in results:
             if result.parse_success:
-                print(f"{result.language.value}: {len(result.symbols)} symbols, {len(result.classes)} classes, {len(result.imports)} imports")
+                print(
+                    f"{result.language.value}: {len(result.symbols)} symbols, {len(result.classes)} classes, {len(result.imports)} imports"
+                )
             else:
                 print(f"{result.language.value}: Parse failed - {result.parse_error}")
 

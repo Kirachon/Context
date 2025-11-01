@@ -1,8 +1,8 @@
 """
 Unit tests for Audit Logging (Story 4-2)
 """
-import os
-from src.security.audit import record_event, read_events, LOG_FILE
+
+from src.security.audit import record_event, read_events
 
 
 def test_audit_record_and_read(tmp_path, monkeypatch):
@@ -16,4 +16,3 @@ def test_audit_record_and_read(tmp_path, monkeypatch):
     events = read_events()
     assert len(events) == 2
     assert events[0]["type"] == "test"
-

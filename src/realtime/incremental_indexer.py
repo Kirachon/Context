@@ -4,6 +4,7 @@ Incremental Indexer (Story 2.2 AC2)
 Smart incremental indexing with content-hash change detection, dependency tracking,
 and batched vector DB updates. Integrates with RealTimeFileWatcher and Story 1.3 queue.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -98,7 +99,9 @@ class IncrementalIndexer:
                 while len(batch) < self._batch_max:
                     timeout = max(0, self._batch_window_ms / 1000 - (time.time() - t0))
                     try:
-                        item = await asyncio.wait_for(self._queue.get(), timeout=timeout)
+                        item = await asyncio.wait_for(
+                            self._queue.get(), timeout=timeout
+                        )
                         batch.append(item)
                     except asyncio.TimeoutError:
                         break
@@ -216,15 +219,21 @@ class IncrementalIndexer:
             return await self._index_file_func(file_path)
         # Lazy import to avoid heavy deps in tests
         from src.indexing.file_indexer import file_indexer as _fx
+
         return await _fx.index_file(file_path)
 
     async def _call_remove_file(self, file_path: str):
         if self._remove_file_func:
             return await self._remove_file_func(file_path)
         from src.indexing.file_indexer import file_indexer as _fx
+
         return await _fx.remove_file(file_path)
 
-    def set_index_ops(self, index_file_func: Callable[[str], Any], remove_file_func: Callable[[str], Any]):
+    def set_index_ops(
+        self,
+        index_file_func: Callable[[str], Any],
+        remove_file_func: Callable[[str], Any],
+    ):
         self._index_file_func = index_file_func
         self._remove_file_func = remove_file_func
 
@@ -253,16 +262,20 @@ class IncrementalIndexer:
         key = self._import_key_from_path(file_path)
         return set(self._dependents_by_import.get(key, set()))
 
-    async def _batch_upsert_vectors(self, file_texts: Dict[str, str], parse_results: Dict[str, ParseResult]):
+    async def _batch_upsert_vectors(
+        self, file_texts: Dict[str, str], parse_results: Dict[str, ParseResult]
+    ):
         """Batch-generate embeddings and upsert vectors to Qdrant when possible."""
         # Lazy imports only when needed to allow test-time injection
         if self._embedding_service is None:
             from src.vector_db.embeddings import get_embedding_service
+
             svc = get_embedding_service()
         else:
             svc = self._embedding_service
         if self._vector_store is None:
             from src.vector_db.vector_store import get_vector_store
+
             store = get_vector_store()
         else:
             store = self._vector_store
@@ -272,7 +285,9 @@ class IncrementalIndexer:
             try:
                 await svc.initialize()  # may be mocked in tests
             except Exception:
-                logger.warning("EmbeddingService initialize failed; continuing with per-file fallback")
+                logger.warning(
+                    "EmbeddingService initialize failed; continuing with per-file fallback"
+                )
 
         ids: List[str] = []
         texts: List[str] = []
@@ -282,15 +297,23 @@ class IncrementalIndexer:
             lang = pr.language.value if pr and pr.language else ""
             file_name = Path(fp).name
             # Compose text with light context (same as EmbeddingService.generate_code_embedding)
-            prefix = " | ".join([p for p in [f"Language: {lang}" if lang else "", f"File: {file_name}"] if p])
+            prefix = " | ".join(
+                [
+                    p
+                    for p in [f"Language: {lang}" if lang else "", f"File: {file_name}"]
+                    if p
+                ]
+            )
             texts.append((prefix + "\n\n" + code) if prefix else code)
             ids.append(str(Path(fp).resolve()))
-            payloads.append({
-                "file_path": str(Path(fp).resolve()),
-                "file_name": file_name,
-                "file_type": lang,
-                "indexed_time": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-            })
+            payloads.append(
+                {
+                    "file_path": str(Path(fp).resolve()),
+                    "file_name": file_name,
+                    "file_type": lang,
+                    "indexed_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
+            )
 
         if not texts:
             return
@@ -315,7 +338,6 @@ class IncrementalIndexer:
 _incremental_indexer: Optional[IncrementalIndexer] = None
 
 
-
 def attach_watcher(watcher: Any, indexer: Optional[IncrementalIndexer] = None):
     """Attach incremental indexer to a RealTimeFileWatcher instance.
     The watcher should expose `on_change_callback` attribute.
@@ -330,4 +352,3 @@ def get_incremental_indexer() -> IncrementalIndexer:
     if _incremental_indexer is None:
         _incremental_indexer = IncrementalIndexer()
     return _incremental_indexer
-

@@ -30,4 +30,3 @@ _usage: UsageAnalytics = UsageAnalytics()
 
 def usage() -> UsageAnalytics:
     return _usage
-

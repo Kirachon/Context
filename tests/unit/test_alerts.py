@@ -1,6 +1,7 @@
 """
 Unit tests for Alerts (Story 4-3)
 """
+
 from src.monitoring.alerts import emit_alert, list_alerts, clear_alerts
 
 
@@ -12,4 +13,3 @@ def test_alerts_flow():
     alerts = list_alerts()
     assert len(alerts) == 2
     assert any(a["level"] == "critical" for a in alerts)
-

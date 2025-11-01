@@ -4,15 +4,16 @@ Pattern Search Service (Production)
 Provides high-level APIs for Tree-sitter pattern search over code, with
 caching and multi-language support.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Iterable, Tuple
+from typing import Dict, List, Optional, Tuple
 import hashlib
 
-from src.research.query_patterns import TreeSitterQueryEngine, QueryPattern, QueryMatch
+from src.research.query_patterns import TreeSitterQueryEngine, QueryPattern
 from src.parsing.parser import detect_language
 
 logger = logging.getLogger(__name__)
@@ -51,8 +52,15 @@ class PatternSearchService:
     def _hash(self, s: str) -> str:
         return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-    def _list_files(self, root: Path, include: Optional[List[str]], exclude: Optional[List[str]], max_files: int) -> List[Path]:
+    def _list_files(
+        self,
+        root: Path,
+        include: Optional[List[str]],
+        exclude: Optional[List[str]],
+        max_files: int,
+    ) -> List[Path]:
         import fnmatch
+
         files: List[Path] = []
         for p in root.rglob("*"):
             if not p.is_file():
@@ -71,7 +79,9 @@ class PatternSearchService:
                 break
         return files
 
-    def _get_patterns(self, languages: Optional[List[str]], names: Optional[List[str]]) -> Dict[str, List[QueryPattern]]:
+    def _get_patterns(
+        self, languages: Optional[List[str]], names: Optional[List[str]]
+    ) -> Dict[str, List[QueryPattern]]:
         patterns_by_lang: Dict[str, List[QueryPattern]] = {}
         selected_langs = languages or list(self.engine.get_all_patterns().keys())
         for lang in selected_langs:
@@ -82,27 +92,37 @@ class PatternSearchService:
                 patterns_by_lang[lang] = pats
         return patterns_by_lang
 
-    def search_code(self, language: str, code: str, patterns: Optional[List[str]] = None) -> List[PatternSearchResult]:
+    def search_code(
+        self, language: str, code: str, patterns: Optional[List[str]] = None
+    ) -> List[PatternSearchResult]:
         results: List[PatternSearchResult] = []
         patterns_by_lang = self._get_patterns([language], patterns)
         for lang, pats in patterns_by_lang.items():
             for pat in pats:
                 matches = self.engine.execute_query(pat, code, file_path="snippet")
                 for m in matches:
-                    results.append(PatternSearchResult(
-                        pattern_name=m.pattern_name,
-                        language=lang,
-                        file_path=m.file_path,
-                        start_line=m.start_line,
-                        end_line=m.end_line,
-                        snippet=m.matched_text,
-                        captures=m.captures,
-                    ))
+                    results.append(
+                        PatternSearchResult(
+                            pattern_name=m.pattern_name,
+                            language=lang,
+                            file_path=m.file_path,
+                            start_line=m.start_line,
+                            end_line=m.end_line,
+                            snippet=m.matched_text,
+                            captures=m.captures,
+                        )
+                    )
         return results
 
-    def search_directory(self, root: Path, patterns: Optional[List[str]] = None, languages: Optional[List[str]] = None,
-                         include_globs: Optional[List[str]] = None, exclude_globs: Optional[List[str]] = None,
-                         max_files: int = 500) -> List[PatternSearchResult]:
+    def search_directory(
+        self,
+        root: Path,
+        patterns: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        include_globs: Optional[List[str]] = None,
+        exclude_globs: Optional[List[str]] = None,
+        max_files: int = 500,
+    ) -> List[PatternSearchResult]:
         results: List[PatternSearchResult] = []
         root = root.resolve()
         files = self._list_files(root, include_globs, exclude_globs, max_files)
@@ -131,15 +151,17 @@ class PatternSearchService:
                 matches = self.engine.execute_query(pat, code, file_path=str(path))
                 converted: List[PatternSearchResult] = []
                 for m in matches:
-                    converted.append(PatternSearchResult(
-                        pattern_name=m.pattern_name,
-                        language=lang_str,
-                        file_path=str(path),
-                        start_line=m.start_line,
-                        end_line=m.end_line,
-                        snippet=m.matched_text,
-                        captures=m.captures,
-                    ))
+                    converted.append(
+                        PatternSearchResult(
+                            pattern_name=m.pattern_name,
+                            language=lang_str,
+                            file_path=str(path),
+                            start_line=m.start_line,
+                            end_line=m.end_line,
+                            snippet=m.matched_text,
+                            captures=m.captures,
+                        )
+                    )
                 self._file_cache[cache_key] = converted
                 if len(self._file_cache) > self._max_file_cache:
                     # random eviction
@@ -150,9 +172,9 @@ class PatternSearchService:
 
 _service: Optional[PatternSearchService] = None
 
+
 def get_pattern_search_service() -> PatternSearchService:
     global _service
     if _service is None:
         _service = PatternSearchService()
     return _service
-

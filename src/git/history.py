@@ -30,17 +30,21 @@ def run_git_command(args: List[str], cwd: Optional[str] = None) -> str:
 def get_recent_commits(n: int = 10, cwd: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get last n commits with basic info"""
     fmt = "%H|%an|%ad|%s"
-    out = run_git_command(["log", f"-n{n}", f"--pretty=format:{fmt}", "--date=iso"], cwd)
+    out = run_git_command(
+        ["log", f"-n{n}", f"--pretty=format:{fmt}", "--date=iso"], cwd
+    )
     commits = []
     for line in out.splitlines():
         parts = line.split("|", 3)
         if len(parts) == 4:
-            commits.append({
-                "hash": parts[0],
-                "author": parts[1],
-                "date": parts[2],
-                "subject": parts[3],
-            })
+            commits.append(
+                {
+                    "hash": parts[0],
+                    "author": parts[1],
+                    "date": parts[2],
+                    "subject": parts[3],
+                }
+            )
     return commits
 
 
@@ -70,4 +74,3 @@ def summarize_changes(cwd: Optional[str] = None) -> Dict[str, Any]:
         elif code.startswith("R"):
             summary["renamed"] += 1
     return summary
-

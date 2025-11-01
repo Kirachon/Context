@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
 class OllamaClient:
     """Async client for Ollama HTTP API"""
 
-    def __init__(self, base_url: Optional[str] = None, timeout: Optional[int] = None, max_retries: Optional[int] = None):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        timeout: Optional[int] = None,
+        max_retries: Optional[int] = None,
+    ):
         self.base_url = base_url or settings.ollama_base_url
         self.timeout = timeout or settings.ollama_timeout
         self.max_retries = max_retries or getattr(settings, "ollama_max_retries", 3)
@@ -55,12 +60,20 @@ class OllamaClient:
         # drop old failures outside window
         self._cb_failures = [t for t in self._cb_failures if now - t <= self.cb_window]
         self._cb_failures.append(now)
-        if self._cb_state in ("closed", "half_open") and len(self._cb_failures) >= self.cb_threshold:
+        if (
+            self._cb_state in ("closed", "half_open")
+            and len(self._cb_failures) >= self.cb_threshold
+        ):
             self._cb_state = "open"
             self._cb_opened_at = now
             try:
                 from src.monitoring.metrics import metrics
-                metrics.counter("ollama_circuit_transitions_total", "Circuit transitions", ("to_state",)).labels("open").inc()
+
+                metrics.counter(
+                    "ollama_circuit_transitions_total",
+                    "Circuit transitions",
+                    ("to_state",),
+                ).labels("open").inc()
             except Exception:
                 pass
 
@@ -72,7 +85,12 @@ class OllamaClient:
             self._cb_state = "closed"
             try:
                 from src.monitoring.metrics import metrics
-                metrics.counter("ollama_circuit_transitions_total", "Circuit transitions", ("to_state",)).labels("closed").inc()
+
+                metrics.counter(
+                    "ollama_circuit_transitions_total",
+                    "Circuit transitions",
+                    ("to_state",),
+                ).labels("closed").inc()
             except Exception:
                 pass
 
@@ -85,6 +103,7 @@ class OllamaClient:
     ) -> str:
         """Generate text response from Ollama with retry/backoff and metrics"""
         from src.monitoring.metrics import metrics
+
         url = f"{self.base_url}/api/generate"
         model_name = model or settings.ollama_default_model
         payload = {
@@ -99,8 +118,12 @@ class OllamaClient:
             raise RuntimeError("aiohttp not installed; cannot call Ollama HTTP API")
 
         # Metrics
-        c_ok = metrics.counter("ollama_requests_total", "Ollama requests", ("model", "status"))
-        h_latency = metrics.histogram("ollama_request_seconds", "Ollama request latency")
+        c_ok = metrics.counter(
+            "ollama_requests_total", "Ollama requests", ("model", "status")
+        )
+        h_latency = metrics.histogram(
+            "ollama_request_seconds", "Ollama request latency"
+        )
 
         # Circuit breaker check
         if not self._cb_allow():
@@ -141,19 +164,24 @@ class OllamaClient:
                 except Exception:
                     pass
                 self._cb_record_failure()
-                logger.warning(f"Ollama request failed (attempt {attempt}/{self.max_retries}): {e}")
+                logger.warning(
+                    f"Ollama request failed (attempt {attempt}/{self.max_retries}): {e}"
+                )
                 if attempt >= self.max_retries:
                     break
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 8.0)
 
         # If we get here, all retries failed
-        raise RuntimeError(f"Ollama request failed after {self.max_retries} attempts: {last_exc}")
+        raise RuntimeError(
+            f"Ollama request failed after {self.max_retries} attempts: {last_exc}"
+        )
 
     def _build_prompt(self, prompt: str, context: Optional[Dict[str, Any]]) -> str:
         if not context:
             return prompt
         import json
+
         return (
             "You are a coding assistant. Use the following context if helpful.\n"
             + "Context:\n"
@@ -172,4 +200,3 @@ def get_ollama_client() -> OllamaClient:
     if _ollama_client is None:
         _ollama_client = OllamaClient()
     return _ollama_client
-

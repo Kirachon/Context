@@ -3,6 +3,7 @@ MCP tools instrumentation helpers.
 
 Wrap MCP tool functions to capture metrics and latencies.
 """
+
 from __future__ import annotations
 
 import time
@@ -17,7 +18,9 @@ def instrument_tool(name: str) -> Callable[[Callable[..., Any]], Callable[..., A
     - mcp_tool_calls_total{tool, status}
     - mcp_tool_seconds (histogram)
     """
-    c_calls = metrics.counter("mcp_tool_calls_total", "MCP tool invocations", ("tool", "status"))
+    c_calls = metrics.counter(
+        "mcp_tool_calls_total", "MCP tool invocations", ("tool", "status")
+    )
     h_secs = metrics.histogram("mcp_tool_seconds", "MCP tool latency", ("tool",))
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -38,7 +41,7 @@ def instrument_tool(name: str) -> Callable[[Callable[..., Any]], Callable[..., A
                 except Exception:
                     pass
                 raise
+
         return wrapper
 
     return decorator
-

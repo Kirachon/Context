@@ -44,4 +44,3 @@ def list_alerts(limit: int = 50) -> List[Dict[str, Any]]:
 
 def clear_alerts():
     _registry.clear()
-

@@ -6,12 +6,13 @@ Data models for AST parsing results and code structure analysis.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 
 class Language(Enum):
     """Supported programming languages."""
+
     PYTHON = "python"
     JAVASCRIPT = "javascript"
     TYPESCRIPT = "typescript"
@@ -24,15 +25,16 @@ class Language(Enum):
 @dataclass
 class ASTNode:
     """Represents a node in the Abstract Syntax Tree."""
+
     type: str
     text: str
     start_byte: int
     end_byte: int
     start_point: tuple[int, int]  # (row, column)
-    end_point: tuple[int, int]    # (row, column)
-    children: List['ASTNode'] = field(default_factory=list)
-    parent: Optional['ASTNode'] = None
-    
+    end_point: tuple[int, int]  # (row, column)
+    children: List["ASTNode"] = field(default_factory=list)
+    parent: Optional["ASTNode"] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert AST node to dictionary for serialization."""
         return {
@@ -42,13 +44,14 @@ class ASTNode:
             "end_byte": self.end_byte,
             "start_point": self.start_point,
             "end_point": self.end_point,
-            "children": [child.to_dict() for child in self.children]
+            "children": [child.to_dict() for child in self.children],
         }
 
 
 @dataclass
 class ParameterInfo:
     """Information about a function/method parameter."""
+
     name: str
     type_hint: Optional[str] = None
     default_value: Optional[str] = None
@@ -59,13 +62,14 @@ class ParameterInfo:
             "name": self.name,
             "type_hint": self.type_hint,
             "default_value": self.default_value,
-            "is_variadic": self.is_variadic
+            "is_variadic": self.is_variadic,
         }
 
 
 @dataclass
 class SymbolInfo:
     """Information about a code symbol (function, class, variable)."""
+
     name: str
     type: str  # function, class, variable, method, constructor, etc.
     line_start: int
@@ -79,7 +83,9 @@ class SymbolInfo:
     is_abstract: bool = False
     is_async: bool = False
     parent_class: Optional[str] = None  # For methods
-    decorators: List[str] = field(default_factory=list)  # Python decorators, Java annotations
+    decorators: List[str] = field(
+        default_factory=list
+    )  # Python decorators, Java annotations
     generic_params: List[str] = field(default_factory=list)  # Generic type parameters
 
     def to_dict(self) -> Dict[str, Any]:
@@ -99,13 +105,14 @@ class SymbolInfo:
             "is_async": self.is_async,
             "parent_class": self.parent_class,
             "decorators": self.decorators,
-            "generic_params": self.generic_params
+            "generic_params": self.generic_params,
         }
 
 
 @dataclass
 class ClassInfo:
     """Information about a class/struct definition."""
+
     name: str
     line_start: int
     line_end: int
@@ -136,13 +143,14 @@ class ClassInfo:
             "is_static": self.is_static,
             "generic_params": self.generic_params,
             "decorators": self.decorators,
-            "docstring": self.docstring
+            "docstring": self.docstring,
         }
 
 
 @dataclass
 class ImportInfo:
     """Information about imports/dependencies."""
+
     module: str
     alias: Optional[str] = None
     items: List[str] = field(default_factory=list)  # for from imports
@@ -158,13 +166,14 @@ class ImportInfo:
             "items": self.items,
             "line": self.line,
             "import_type": self.import_type,
-            "is_wildcard": self.is_wildcard
+            "is_wildcard": self.is_wildcard,
         }
 
 
 @dataclass
 class RelationshipInfo:
     """Information about code relationships (calls, inheritance, etc.)."""
+
     type: str  # call, inheritance, implements, uses, etc.
     source: str  # Source symbol name
     target: str  # Target symbol name
@@ -177,13 +186,14 @@ class RelationshipInfo:
             "source": self.source,
             "target": self.target,
             "source_line": self.source_line,
-            "context": self.context
+            "context": self.context,
         }
 
 
 @dataclass
 class ParseResult:
     """Result of parsing a code file."""
+
     file_path: Path
     language: Language
     ast_root: Optional[ASTNode]
@@ -209,5 +219,5 @@ class ParseResult:
             "parse_success": self.parse_success,
             "parse_error": self.parse_error,
             "parse_time_ms": self.parse_time_ms,
-            "symbol_extraction_time_ms": self.symbol_extraction_time_ms
+            "symbol_extraction_time_ms": self.symbol_extraction_time_ms,
         }

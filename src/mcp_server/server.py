@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 # Configure logging (centralized)
 from src.logging.manager import configure_logging
 from src.config.settings import settings
+
 configure_logging(level=settings.log_level, fmt=settings.log_format)
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ from fastapi import Request
 from src.logging.manager import set_correlation_id
 import uuid
 
+
 @app.middleware("http")
 async def correlation_and_auth_middleware(request: Request, call_next):
     cid = request.headers.get(settings.correlation_id_header) or str(uuid.uuid4())
@@ -48,16 +50,18 @@ async def correlation_and_auth_middleware(request: Request, call_next):
         if settings.api_auth_enabled and settings.api_auth_scheme == "api_key":
             api_key = request.headers.get("x-api-key")
             if not api_key or (settings.api_key and api_key != settings.api_key):
-                return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={
-                    "error": "unauthorized",
-                    "timestamp": datetime.utcnow().isoformat(),
-                })
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={
+                        "error": "unauthorized",
+                        "timestamp": datetime.utcnow().isoformat(),
+                    },
+                )
         response = await call_next(request)
         response.headers[settings.correlation_id_header] = cid
         return response
     finally:
         set_correlation_id(None)
-
 
 
 @app.on_event("startup")
@@ -67,6 +71,7 @@ async def startup_event():
 
     try:
         from src.mcp_server.mcp_app import start_mcp_server
+
         await start_mcp_server()
         logger.info("MCP server initialized successfully")
     except Exception as e:
@@ -109,6 +114,7 @@ async def shutdown_event():
 
     try:
         from src.vector_db.qdrant_client import disconnect_qdrant
+
         await disconnect_qdrant()
         logger.info("Qdrant disconnected successfully")
     except Exception as e:
@@ -116,6 +122,7 @@ async def shutdown_event():
 
     try:
         from src.indexing.file_monitor import stop_file_monitor
+
         await stop_file_monitor()
         logger.info("File monitor stopped successfully")
     except Exception as e:
@@ -123,6 +130,7 @@ async def shutdown_event():
 
     try:
         from src.mcp_server.mcp_app import shutdown_mcp_server
+
         await shutdown_mcp_server()
         logger.info("MCP server shutdown successfully")
     except Exception as e:
@@ -132,6 +140,7 @@ async def shutdown_event():
 # Health check response model
 class HealthResponse(BaseModel):
     """Health check response model"""
+
     status: str
     version: str
     timestamp: str
@@ -156,6 +165,7 @@ async def health_check():
     # Get MCP server status
     try:
         from src.mcp_server.mcp_app import get_mcp_status
+
         mcp_status = get_mcp_status()
     except Exception as e:
         logger.warning(f"Could not get MCP status: {e}")
@@ -164,6 +174,7 @@ async def health_check():
     # Get Qdrant status
     try:
         from src.vector_db.qdrant_client import get_qdrant_status
+
         qdrant_status = await get_qdrant_status()
         services_status["qdrant"] = qdrant_status.get("connected", False)
     except Exception as e:
@@ -183,8 +194,8 @@ async def health_check():
         mcp_server={
             "enabled": mcp_status.get("enabled", False),
             "running": mcp_status.get("running", False),
-            "connection_state": mcp_status.get("connection_state", "unknown")
-        }
+            "connection_state": mcp_status.get("connection_state", "unknown"),
+        },
     )
 
 
@@ -231,6 +242,7 @@ async def check_services() -> dict:
 # Indexing status response model
 class IndexingStatusResponse(BaseModel):
     """Indexing status response model"""
+
     file_monitor: dict
     indexing_queue: dict
     indexer: dict
@@ -238,7 +250,11 @@ class IndexingStatusResponse(BaseModel):
     timestamp: str
 
 
-@app.get("/indexing/status", response_model=IndexingStatusResponse, status_code=status.HTTP_200_OK)
+@app.get(
+    "/indexing/status",
+    response_model=IndexingStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def indexing_status():
     """
     Indexing status endpoint
@@ -275,35 +291,36 @@ async def indexing_status():
                 "running": monitor_status["running"],
                 "monitored_paths": monitor_status["monitored_paths"],
                 "ignore_patterns": monitor_status["ignore_patterns"],
-                "observer_alive": monitor_status["observer_alive"]
+                "observer_alive": monitor_status["observer_alive"],
             },
             indexing_queue={
                 "processing": queue_status["processing"],
                 "queue_size": queue_status["queue_size"],
                 "current_item": queue_status["current_item"],
-                "stats": queue_status["stats"]
+                "stats": queue_status["stats"],
             },
             indexer={
                 "total_indexed": indexer_stats["total_indexed"],
                 "total_errors": indexer_stats["total_errors"],
                 "by_language": indexer_stats["by_language"],
-                "supported_languages": indexer_stats["supported_languages"]
+                "supported_languages": indexer_stats["supported_languages"],
             },
             database=db_stats,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Error getting indexing status: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
         )
 
 
 # Vector status response model
 class VectorStatusResponse(BaseModel):
     """Vector status response model"""
+
     qdrant: dict
     embeddings: dict
     vector_store: dict
@@ -315,7 +332,11 @@ class VectorStatusResponse(BaseModel):
 from src.search.models import SearchRequest, SearchResponse, SearchStats
 
 
-@app.get("/vector/status", response_model=VectorStatusResponse, status_code=status.HTTP_200_OK)
+@app.get(
+    "/vector/status",
+    response_model=VectorStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def vector_status():
     """
     Vector database status endpoint
@@ -354,18 +375,20 @@ async def vector_status():
             embeddings=embedding_stats,
             vector_store=vector_stats,
             collections=collections_info,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Error getting vector status: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
         )
 
 
-@app.post("/search/semantic", response_model=SearchResponse, status_code=status.HTTP_200_OK)
+@app.post(
+    "/search/semantic", response_model=SearchResponse, status_code=status.HTTP_200_OK
+)
 async def semantic_search(request: SearchRequest):
     """
     Semantic code search endpoint
@@ -386,20 +409,22 @@ async def semantic_search(request: SearchRequest):
         # Perform search
         response = await search_code(request)
 
-        logger.info(f"Search completed: {response.total_results} results in {response.search_time_ms:.2f}ms")
+        logger.info(
+            f"Search completed: {response.total_results} results in {response.search_time_ms:.2f}ms"
+        )
         return response
 
     except ValueError as e:
         logger.error(f"Validation error in search: {e}")
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
         )
     except Exception as e:
         logger.error(f"Error during semantic search: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
         )
 
 
@@ -423,47 +448,59 @@ async def search_stats():
         logger.error(f"Error getting search stats: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
         )
-
 
 
 # Metrics endpoints
 from fastapi import Response
+
 
 @app.get("/metrics")
 async def metrics_prometheus():
     """Prometheus metrics endpoint (if prometheus_client installed)."""
     try:
         from prometheus_client import generate_latest, CONTENT_TYPE_LATEST  # type: ignore
+
         output = generate_latest()
         return Response(content=output, media_type=CONTENT_TYPE_LATEST)
     except Exception as e:
         logger.warning(f"/metrics unavailable: {e}")
-        return JSONResponse(status_code=status.HTTP_501_NOT_IMPLEMENTED, content={
-            "error": "prometheus_client not installed",
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        return JSONResponse(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            content={
+                "error": "prometheus_client not installed",
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        )
+
 
 @app.get("/ready", status_code=status.HTTP_200_OK)
 async def ready():
     """Readiness probe endpoint."""
     return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
 
+
 @app.get("/metrics.json")
 async def metrics_json():
     """JSON snapshot of in-process metrics."""
     try:
         from src.monitoring.metrics import metrics
+
         counters = list(getattr(metrics, "_counters", {}).keys())
         histograms = list(getattr(metrics, "_hists", {}).keys())
-        return {"counters": counters, "histograms": histograms, "timestamp": datetime.utcnow().isoformat()}
+        return {
+            "counters": counters,
+            "histograms": histograms,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
     except Exception as e:
         logger.error(f"/metrics.json error: {e}")
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        })
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+        )
+
 
 @app.get("/", status_code=status.HTTP_200_OK)
 async def root():
@@ -478,7 +515,7 @@ async def root():
         "description": APP_DESCRIPTION,
         "status": "running",
         "health_endpoint": "/health",
-        "docs_endpoint": "/docs"
+        "docs_endpoint": "/docs",
     }
 
 
@@ -486,10 +523,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # Run server
-    uvicorn.run(
-        "server:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="debug"
-    )
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="debug")

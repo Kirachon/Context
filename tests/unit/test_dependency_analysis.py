@@ -1,9 +1,10 @@
 """
 Unit tests for DependencyAnalyzer (Story 2.5)
 """
-from src.analysis.dependency_analysis import DependencyAnalyzer, DependencyEdge
+
+from src.analysis.dependency_analysis import DependencyAnalyzer
 from pathlib import Path
-from src.parsing.models import ParseResult, SymbolInfo, ClassInfo, ImportInfo, Language
+from src.parsing.models import ParseResult, ClassInfo, ImportInfo, Language
 
 
 def make_pr(file_path, imports=None, classes=None, symbols=None):
@@ -22,9 +23,30 @@ def test_graph_from_imports_and_inheritance():
     pr_a = make_pr(
         "a.py",
         imports=[ImportInfo(module="b", items=[])],
-        classes=[ClassInfo(name="A", line_start=1, line_end=2, base_classes=["B"], interfaces=[], methods=[])],
+        classes=[
+            ClassInfo(
+                name="A",
+                line_start=1,
+                line_end=2,
+                base_classes=["B"],
+                interfaces=[],
+                methods=[],
+            )
+        ],
     )
-    pr_b = make_pr("b.py", classes=[ClassInfo(name="B", line_start=1, line_end=2, base_classes=[], interfaces=[], methods=[])])
+    pr_b = make_pr(
+        "b.py",
+        classes=[
+            ClassInfo(
+                name="B",
+                line_start=1,
+                line_end=2,
+                base_classes=[],
+                interfaces=[],
+                methods=[],
+            )
+        ],
+    )
 
     analyzer = DependencyAnalyzer([pr_a, pr_b])
     edges = analyzer.build_edges()
@@ -53,4 +75,3 @@ def test_impact_of_change_depends_on_transitive():
     analyzer = DependencyAnalyzer([pr_a, pr_b, pr_c])
     impacted = analyzer.impact_of_change("c.py")
     assert impacted == {"b.py", "a.py"}
-
