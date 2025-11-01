@@ -1,4 +1,4 @@
-# generated: 2025-10-31
+# generated: 2025-11-01
 # project: Context
 # project_key: Context
 # tracking_system: file-system
@@ -29,7 +29,7 @@
 # - SM typically drafts next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
 
-generated: 2025-10-31
+generated: 2025-11-01
 project: Context
 project_key: Context
 tracking_system: file-system
@@ -53,13 +53,13 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Semantic Search & Code Intelligence
-  epic-2: backlog
+  epic-2: contexted
   2-1-advanced-code-parsing-and-ast-analysis: backlog
   2-2-enhanced-vector-embeddings-with-code-context: backlog
   2-3-advanced-search-filtering-and-ranking: backlog
   2-4-code-pattern-recognition-and-categorization: backlog
-  2-5-cross-reference-and-dependency-analysis: backlog
-  2-6-intelligent-query-understanding-and-enhancement: backlog
+  2-5-cross-reference-and-dependency-analysis: done
+  2-6-intelligent-query-understanding-and-enhancement: done
   2-7-performance-optimization-for-large-codebases: backlog
   2-8-search-result-presentation-and-navigation: backlog
   epic-2-retrospective: optional
