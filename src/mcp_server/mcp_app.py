@@ -161,6 +161,8 @@ class MCPServer:
         from src.mcp_server.tools.vector import register_vector_tools
         from src.mcp_server.tools.search import register_search_tools
         from src.mcp_server.tools.pattern_search import register_pattern_search_tools
+        from src.mcp_server.tools.dependency_analysis import register_dependency_tools
+        from src.mcp_server.tools.query_understanding import register_query_tools
 
         register_health_tools(self.mcp)
         register_capability_tools(self.mcp)
@@ -168,6 +170,8 @@ class MCPServer:
         register_vector_tools(self.mcp)
         register_search_tools(self.mcp)
         register_pattern_search_tools(self.mcp)
+        register_dependency_tools(self.mcp)
+        register_query_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
     
