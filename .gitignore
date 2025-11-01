@@ -463,3 +463,7 @@ in-memoria.db
 # Docker/runtime state (volumes, container logs)
 **/volumes/**
 **/docker-data/**
+
+
+# Backups (created by scripts)
+backups/
