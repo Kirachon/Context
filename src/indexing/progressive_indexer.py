@@ -250,7 +250,7 @@ def get_progressive_indexer() -> ProgressiveIndexer:
     global _progressive_indexer
     if _progressive_indexer is None:
         _progressive_indexer = ProgressiveIndexer(
-            initial_batch_size=settings.batch_size,
+            initial_batch_size=getattr(settings, 'indexing_batch_size', 10),
             max_batch_size=50,
             min_batch_size=1
         )

@@ -8,6 +8,7 @@ import time
 import hashlib
 from typing import Any, Dict, Optional
 from collections import deque
+import threading
 
 
 class QueryCache:
@@ -16,6 +17,7 @@ class QueryCache:
         self.max_items = max_items
         self._store: Dict[str, Any] = {}
         self._order: deque[str] = deque()
+        self._lock = threading.Lock()
 
     def _key(self, query: str, filters: Optional[Dict[str, Any]] = None) -> str:
         import json
@@ -24,21 +26,23 @@ class QueryCache:
 
     def get(self, query: str, filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         k = self._key(query, filters)
-        item = self._store.get(k)
-        if not item:
-            return None
-        if time.time() - item["ts"] > self.ttl:
-            self._store.pop(k, None)
-            return None
-        return item["value"]
+        with self._lock:
+            item = self._store.get(k)
+            if not item:
+                return None
+            if time.time() - item["ts"] > self.ttl:
+                self._store.pop(k, None)
+                return None
+            return item["value"]
 
     def set(self, query: str, value: Dict[str, Any], filters: Optional[Dict[str, Any]] = None):
         k = self._key(query, filters)
-        self._store[k] = {"value": value, "ts": time.time()}
-        self._order.append(k)
-        while len(self._order) > self.max_items:
-            old = self._order.popleft()
-            self._store.pop(old, None)
+        with self._lock:
+            self._store[k] = {"value": value, "ts": time.time()}
+            self._order.append(k)
+            while len(self._order) > self.max_items:
+                old = self._order.popleft()
+                self._store.pop(old, None)
 
 
 _query_cache: Optional[QueryCache] = None
