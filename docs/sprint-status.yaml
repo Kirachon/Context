@@ -56,10 +56,10 @@ development_status:
 
   # Epic 2: Semantic Search & Code Intelligence
   epic-2: contexted
-  2-1-advanced-code-parsing-and-ast-analysis: ready-for-dev
-  2-2-enhanced-vector-embeddings-with-code-context: backlog
-  2-3-advanced-search-filtering-and-ranking: backlog
-  2-4-code-pattern-recognition-and-categorization: backlog
+  2-1-advanced-code-parsing-and-ast-analysis: done
+  2-2-enhanced-vector-embeddings-with-code-context: done
+  2-3-advanced-search-filtering-and-ranking: done
+  2-4-code-pattern-recognition-and-categorization: done
   2-5-cross-reference-and-dependency-analysis: done
   2-6-intelligent-query-understanding-and-enhancement: done
   2-7-performance-optimization-for-large-codebases: backlog
