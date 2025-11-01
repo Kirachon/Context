@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <story id="2.6" title="Intelligent Query Understanding and Enhancement">
+    <status>ready-for-dev</status>
+    <epic>Epic 2: Semantic Search & Code Intelligence</epic>
+    <priority>high</priority>
+    <dependencies>
+      <dependency story="2.1">Advanced Code Parsing (for AST context)</dependency>
+      <dependency story="2.5">Dependency Analysis (for impact context)</dependency>
+    </dependencies>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">NLP understands query intent (search, refactor, understand, debug, etc.)</criterion>
+    <criterion id="2">Query enhancement injects relevant context (recent changes, patterns, dependencies)</criterion>
+    <criterion id="3">Follow-up questions help refine search intent</criterion>
+    <criterion id="4">Query history provides quick access to previous searches</criterion>
+    <criterion id="5">Query analytics identify common search patterns and needs</criterion>
+  </acceptanceCriteria>
+
+  <integrationPoints>
+    <integration component="SemanticSearch" path="src/search/semantic_search.py"/>
+    <integration component="CrossLanguageAnalyzer" path="src/analysis/cross_language.py"/>
+    <integration component="DependencyAnalyzer" path="src/analysis/dependency_analysis.py"/>
+    <integration component="ASTStore" path="src/vector_db/ast_store.py"/>
+    <integration component="MCPServer" path="src/mcp_server/tools/"/>
+  </integrationPoints>
+
+  <design>
+    <service name="QueryIntentClassifier" path="src/search/query_intent.py">
+      <responsibilities>
+        <item>Classify query intent (search, refactor, understand, debug, optimize)</item>
+        <item>Extract key entities and context from query</item>
+        <item>Identify query scope (file, module, codebase)</item>
+      </responsibilities>
+    </service>
+    <service name="QueryEnhancer" path="src/search/query_enhancement.py">
+      <responsibilities>
+        <item>Inject recent changes context</item>
+        <item>Add pattern-based context</item>
+        <item>Include dependency context</item>
+        <item>Expand query with synonyms and related terms</item>
+      </responsibilities>
+    </service>
+    <service name="QueryHistory" path="src/search/query_history.py">
+      <responsibilities>
+        <item>Store query history with results</item>
+        <item>Retrieve previous searches</item>
+        <item>Track query patterns</item>
+      </responsibilities>
+    </service>
+    <service name="QueryAnalytics" path="src/search/query_analytics.py">
+      <responsibilities>
+        <item>Track query patterns and frequency</item>
+        <item>Identify common search needs</item>
+        <item>Generate analytics reports</item>
+      </responsibilities>
+    </service>
+  </design>
+
+  <tests>
+    <unit>
+      <case>Intent classification for different query types</case>
+      <case>Query enhancement with context injection</case>
+      <case>Query history storage and retrieval</case>
+      <case>Follow-up question generation</case>
+      <case>Analytics pattern detection</case>
+    </unit>
+  </tests>
+</storyContext>
