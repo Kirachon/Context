@@ -7,7 +7,7 @@ Provides vector database operations via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Add project root to path
@@ -87,7 +87,7 @@ def register_vector_tools(mcp: FastMCP):
                     "errors": vector_stats.get("errors", 0),
                 },
                 "collections": collections_info,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info("Vector database status retrieved successfully")
@@ -97,7 +97,7 @@ def register_vector_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error getting vector database status: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def search_code(query: str, limit: int = 10) -> Dict[str, Any]:
@@ -122,7 +122,7 @@ def register_vector_tools(mcp: FastMCP):
             if not query_embedding:
                 return {
                     "error": "Failed to generate embedding for query",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
             # Search vectors
@@ -144,7 +144,7 @@ def register_vector_tools(mcp: FastMCP):
                 "query": query,
                 "results_count": len(formatted_results),
                 "results": formatted_results,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info(f"Code search completed: {len(formatted_results)} results")
@@ -152,7 +152,7 @@ def register_vector_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error searching code: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def list_vector_collections() -> Dict[str, Any]:
@@ -176,7 +176,7 @@ def register_vector_tools(mcp: FastMCP):
             result = {
                 "collections_count": len(collections_info),
                 "collections": collections_info,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info(f"Listed {len(collections_info)} vector collections")
@@ -184,7 +184,7 @@ def register_vector_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error listing vector collections: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def vector_health_check() -> Dict[str, Any]:
@@ -229,7 +229,7 @@ def register_vector_tools(mcp: FastMCP):
                         "names": collections,
                     },
                 },
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info(f"Vector health check completed: {result['overall_status']}")
@@ -240,7 +240,7 @@ def register_vector_tools(mcp: FastMCP):
             return {
                 "overall_status": "error",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     logger.info("Vector database tools registered successfully")

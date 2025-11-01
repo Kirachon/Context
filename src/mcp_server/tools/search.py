@@ -7,7 +7,7 @@ Provides semantic search operations via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 # Add project root to path
@@ -100,7 +100,7 @@ def register_search_tools(mcp: FastMCP):
             return {
                 "error": str(e),
                 "query": query,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -186,7 +186,7 @@ def register_search_tools(mcp: FastMCP):
             return {
                 "error": str(e),
                 "query": query,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -219,7 +219,7 @@ def register_search_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error getting search statistics: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def get_search_capabilities() -> Dict[str, Any]:
@@ -256,7 +256,7 @@ def register_search_tools(mcp: FastMCP):
                     "Code snippet extraction",
                     "Result caching",
                 ],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info("Search capabilities retrieved successfully")
@@ -264,7 +264,7 @@ def register_search_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error getting search capabilities: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def update_ranking_weights(weights: Dict[str, float]) -> Dict[str, Any]:
@@ -281,14 +281,14 @@ def register_search_tools(mcp: FastMCP):
             return {
                 "success": True,
                 "weights": ranking.get_ranking_weights(),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"Failed to update ranking weights: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -308,14 +308,14 @@ def register_search_tools(mcp: FastMCP):
                 "success": True,
                 "file_path": file_path,
                 "positive": positive,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"Failed to register feedback: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     logger.info("Search tools registered successfully")

@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 from enum import Enum
 
@@ -94,7 +94,7 @@ class IndexingQueue:
             "change_type": change_type_enum,
             "file_path": file_path,
             "state": IndexingState.PENDING,
-            "queued_time": datetime.utcnow(),
+            "queued_time": datetime.now(timezone.utc),
             "processed_time": None,
             "error": None,
         }
@@ -124,7 +124,7 @@ class IndexingQueue:
         self.processing = True
         logger.info("Starting queue processing...")
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         _t0 = asyncio.get_event_loop().time()
 
         try:
@@ -136,7 +136,7 @@ class IndexingQueue:
                 await self._process_item(item)
 
             # Calculate processing duration
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()
 
             self.stats["last_processing_time"] = end_time
@@ -228,12 +228,12 @@ class IndexingQueue:
                         pass
                     logger.warning(f"Failed to remove: {file_path}")
 
-            item["processed_time"] = datetime.utcnow()
+            item["processed_time"] = datetime.now(timezone.utc)
 
         except Exception as e:
             item["state"] = IndexingState.FAILED
             item["error"] = str(e)
-            item["processed_time"] = datetime.utcnow()
+            item["processed_time"] = datetime.now(timezone.utc)
             self.stats["total_failed"] += 1
             logger.error(f"Error processing {file_path}: {e}", exc_info=True)
 

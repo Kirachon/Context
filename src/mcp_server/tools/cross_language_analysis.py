@@ -7,7 +7,7 @@ Provides cross-language code analysis tools via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -59,7 +59,7 @@ def register_cross_language_tools(mcp: FastMCP):
             if not dir_path.exists() or not dir_path.is_dir():
                 return {
                     "error": f"Directory does not exist: {directory_path}",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
             # Find and parse code files
@@ -114,7 +114,7 @@ def register_cross_language_tools(mcp: FastMCP):
                 return {
                     "error": "No files could be parsed successfully",
                     "files_found": len(files_to_analyze),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
             # Perform cross-language analysis
@@ -147,7 +147,7 @@ def register_cross_language_tools(mcp: FastMCP):
                         "cohesion_factor", 0.0
                     ),
                 },
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -155,7 +155,7 @@ def register_cross_language_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -233,7 +233,7 @@ def register_cross_language_tools(mcp: FastMCP):
                     pattern_type: len(group)
                     for pattern_type, group in pattern_groups.items()
                 },
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -241,7 +241,7 @@ def register_cross_language_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -335,7 +335,7 @@ def register_cross_language_tools(mcp: FastMCP):
                         )
                     ),
                 },
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -343,5 +343,5 @@ def register_cross_language_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }

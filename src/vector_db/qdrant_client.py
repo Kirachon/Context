@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -123,7 +123,7 @@ class QdrantClientService:
             return {
                 "status": "disconnected",
                 "message": "Client not initialized",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         try:
@@ -134,7 +134,7 @@ class QdrantClientService:
                 "status": "healthy",
                 "connected": self.is_connected,
                 "collections_count": len(health_info.collections),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -142,7 +142,7 @@ class QdrantClientService:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     def get_client(self) -> Optional[QdrantClient]:

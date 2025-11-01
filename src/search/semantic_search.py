@@ -10,7 +10,7 @@ import sys
 import time
 import re
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 
 # Add project root to path
@@ -63,7 +63,7 @@ class SemanticSearchService:
         """Check if cached response is still valid"""
         try:
             cached_time = datetime.fromisoformat(cached_response.timestamp)
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             age_seconds = (current_time - cached_time).total_seconds()
             return age_seconds < self.cache_ttl
         except Exception:
@@ -218,7 +218,7 @@ class SemanticSearchService:
                     total_results=0,
                     search_time_ms=(time.time() - start_time) * 1000,
                     filters_applied=applied_filters,
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
 
                 # Cache empty results too
@@ -315,7 +315,7 @@ class SemanticSearchService:
                 total_results=len(filtered_results),
                 search_time_ms=search_time_ms,
                 filters_applied=applied_filters,
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
 
             # Cache response (global + local)
@@ -416,7 +416,7 @@ class SemanticSearchService:
             cache_hit_rate=cache_hit_rate,
             popular_queries=popular_queries,
             error_rate=error_rate,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
     def clear_cache(self):

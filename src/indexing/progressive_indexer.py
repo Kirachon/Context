@@ -8,7 +8,7 @@ for optimal performance on large codebases.
 import logging
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from heapq import heappush, heappop
 import psutil
@@ -35,7 +35,7 @@ class IndexingTask:
     priority: IndexingPriority
     retry_count: int = 0
     max_retries: int = 3
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __lt__(self, other):
         """Compare tasks by priority"""

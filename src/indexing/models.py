@@ -6,7 +6,7 @@ SQLAlchemy models for file metadata storage.
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import Column, Integer, String, DateTime, BigInteger, create_engine
@@ -38,7 +38,9 @@ class FileMetadata(Base):
     size = Column(BigInteger, nullable=False)
     modified_time = Column(DateTime, nullable=False, index=True)
     created_time = Column(DateTime, nullable=True)
-    indexed_time = Column(DateTime, nullable=False, default=datetime.utcnow)
+    indexed_time = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
     status = Column(String(20), nullable=False, default="indexed", index=True)
 
     def __repr__(self):
@@ -123,7 +125,7 @@ async def create_file_metadata(metadata: dict) -> Optional[FileMetadata]:
             size=metadata["size"],
             modified_time=metadata["modified_time"],
             created_time=metadata.get("created_time"),
-            indexed_time=metadata.get("indexed_time", datetime.utcnow()),
+            indexed_time=metadata.get("indexed_time", datetime.now(timezone.utc)),
             status=metadata.get("status", "indexed"),
         )
 
@@ -170,7 +172,7 @@ async def update_file_metadata(
             if hasattr(file_metadata, key):
                 setattr(file_metadata, key, value)
 
-        file_metadata.indexed_time = datetime.utcnow()
+        file_metadata.indexed_time = datetime.now(timezone.utc)
 
         db.commit()
         db.refresh(file_metadata)

@@ -7,7 +7,7 @@ Advanced search service for AST metadata with semantic search and filtering.
 import logging
 import time
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from qdrant_client.http import models
 import src.vector_db.ast_store as ast_store
@@ -111,7 +111,7 @@ class ASTSearchService:
                 imports_found=imports_found,
                 filters_applied=self._get_applied_filters(request),
                 languages_searched=request.languages or [],
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
 
             logger.info(
@@ -129,7 +129,7 @@ class ASTSearchService:
                 results=[],
                 total_results=0,
                 search_time_ms=(time.time() - start_time) * 1000,
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
 
     async def _search_symbols(

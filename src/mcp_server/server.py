@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 # Add project root to path
@@ -54,7 +54,7 @@ async def correlation_and_auth_middleware(request: Request, call_next):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content={
                         "error": "unauthorized",
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
         response = await call_next(request)
@@ -188,7 +188,7 @@ async def health_check():
     return HealthResponse(
         status=health_status,
         version=APP_VERSION,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         environment=os.getenv("ENVIRONMENT", "development"),
         services=services_status,
         mcp_server={
@@ -306,14 +306,14 @@ async def indexing_status():
                 "supported_languages": indexer_stats["supported_languages"],
             },
             database=db_stats,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Error getting indexing status: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+            content={"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()},
         )
 
 
@@ -375,14 +375,14 @@ async def vector_status():
             embeddings=embedding_stats,
             vector_store=vector_stats,
             collections=collections_info,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Error getting vector status: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+            content={"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()},
         )
 
 
@@ -418,13 +418,13 @@ async def semantic_search(request: SearchRequest):
         logger.error(f"Validation error in search: {e}")
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+            content={"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()},
         )
     except Exception as e:
         logger.error(f"Error during semantic search: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+            content={"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()},
         )
 
 
@@ -448,7 +448,7 @@ async def search_stats():
         logger.error(f"Error getting search stats: {e}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+            content={"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()},
         )
 
 
@@ -470,7 +470,7 @@ async def metrics_prometheus():
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             content={
                 "error": "prometheus_client not installed",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -478,7 +478,7 @@ async def metrics_prometheus():
 @app.get("/ready", status_code=status.HTTP_200_OK)
 async def ready():
     """Readiness probe endpoint."""
-    return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
+    return {"ready": True, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/metrics.json")
@@ -492,13 +492,13 @@ async def metrics_json():
         return {
             "counters": counters,
             "histograms": histograms,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         logger.error(f"/metrics.json error: {e}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e), "timestamp": datetime.utcnow().isoformat()},
+            content={"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()},
         )
 
 

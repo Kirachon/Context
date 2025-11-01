@@ -8,7 +8,7 @@ import sys
 import os
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Add project root to path
@@ -51,7 +51,7 @@ def register_pattern_search_tools(mcp: FastMCP):
             if not root.exists() or not root.is_dir():
                 return {
                     "error": f"Invalid directory: {directory_path}",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             service = get_pattern_search_service()
             results = service.search_directory(
@@ -77,14 +77,14 @@ def register_pattern_search_tools(mcp: FastMCP):
                     }
                     for r in results
                 ],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"pattern_search_directory failed: {e}", exc_info=True)
             return {
                 "error": str(e),
                 "results": [],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -117,12 +117,12 @@ def register_pattern_search_tools(mcp: FastMCP):
                     }
                     for r in results
                 ],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"pattern_search_code failed: {e}", exc_info=True)
             return {
                 "error": str(e),
                 "results": [],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }

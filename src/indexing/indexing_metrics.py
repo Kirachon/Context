@@ -7,7 +7,7 @@ Tracks and reports indexing performance metrics for optimization.
 import logging
 from typing import Dict, List, Any
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class BatchMetrics:
 
     def complete(self):
         """Mark batch as complete"""
-        self.end_time = datetime.utcnow()
+        self.end_time = datetime.now(timezone.utc)
         self.total_duration = (self.end_time - self.start_time).total_seconds()
 
 
@@ -81,7 +81,7 @@ class IndexingMetricsCollector:
         batch = BatchMetrics(
             batch_id=self.current_batch_id,
             batch_size=batch_size,
-            start_time=datetime.utcnow(),
+            start_time=datetime.now(timezone.utc),
         )
         self.batch_history.append(batch)
 

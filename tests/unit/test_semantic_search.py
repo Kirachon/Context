@@ -7,7 +7,7 @@ Tests search service, ranking, and filtering functionality.
 import pytest
 import os
 from unittest.mock import patch, mock_open
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add project root to path
 import sys
@@ -48,7 +48,7 @@ class TestSemanticSearchService:
                     "file_name": "file1.py",
                     "file_type": "python",
                     "size": 1024,
-                    "indexed_time": datetime.utcnow().isoformat(),
+                    "indexed_time": datetime.now(timezone.utc).isoformat(),
                 },
             }
         ]
@@ -254,7 +254,7 @@ class TestRankingService:
                 similarity_score=0.8,
                 confidence_score=0.0,
                 file_size=5000,
-                metadata={"indexed_time": datetime.utcnow().isoformat()},
+                metadata={"indexed_time": datetime.now(timezone.utc).isoformat()},
             ),
             SearchResult(
                 file_path="/test/file2.py",
@@ -263,7 +263,7 @@ class TestRankingService:
                 similarity_score=0.9,
                 confidence_score=0.0,
                 file_size=10000,
-                metadata={"indexed_time": datetime.utcnow().isoformat()},
+                metadata={"indexed_time": datetime.now(timezone.utc).isoformat()},
             ),
         ]
 
