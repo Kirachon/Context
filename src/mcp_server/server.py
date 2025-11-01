@@ -12,6 +12,7 @@ import os
 import sys
 from datetime import datetime, timezone
 import logging
+import time
 
 from contextlib import asynccontextmanager
 # Add project root to path
@@ -110,6 +111,24 @@ async def lifespan(app: FastAPI):
 
 # Register lifespan with the FastAPI app
 app.router.lifespan_context = lifespan
+# HTTP metrics (request count and latency)
+try:
+    from src.monitoring.metrics import metrics as _metrics
+    HTTP_REQUESTS = _metrics.counter(
+        "http_requests_total",
+        "Total HTTP requests",
+        ("method", "path", "status_code"),
+    )
+    HTTP_LATENCY = _metrics.histogram(
+        "http_request_duration_seconds",
+        "HTTP request duration seconds",
+        ("method", "path"),
+        buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5),
+    )
+except Exception:
+    HTTP_REQUESTS = None
+    HTTP_LATENCY = None
+
 
 
 from fastapi import Request
@@ -121,21 +140,41 @@ import uuid
 async def correlation_and_auth_middleware(request: Request, call_next):
     cid = request.headers.get(settings.correlation_id_header) or str(uuid.uuid4())
     set_correlation_id(cid)
+    start = time.perf_counter()
+    response = None
     try:
+        # AuthN
         if settings.api_auth_enabled and settings.api_auth_scheme == "api_key":
             api_key = request.headers.get("x-api-key")
             if not api_key or (settings.api_key and api_key != settings.api_key):
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content={
                         "error": "unauthorized",
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
-        response = await call_next(request)
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
+
         response.headers[settings.correlation_id_header] = cid
         return response
     finally:
+        # Metrics
+        try:
+            method = request.method
+            route = request.scope.get("route")
+            path_tpl = getattr(route, "path", request.url.path)
+            status_code = getattr(response, "status_code", 500)
+            dur = time.perf_counter() - start
+            if HTTP_REQUESTS is not None:
+                HTTP_REQUESTS.labels(method, path_tpl, str(status_code)).inc()
+            if HTTP_LATENCY is not None:
+                HTTP_LATENCY.labels(method, path_tpl).observe(dur)
+        except Exception:
+            pass
         set_correlation_id(None)
 
 
