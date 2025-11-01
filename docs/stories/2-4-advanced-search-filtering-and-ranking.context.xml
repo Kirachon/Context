@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <story id="2.4" title="Advanced Search Filtering and Ranking">
+    <status>ready-for-dev</status>
+    <epic>Epic 2: Semantic Search & Code Intelligence</epic>
+    <priority>high</priority>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Advanced filtering by file type, directory, author, and modification date</criterion>
+    <criterion id="2">Semantic similarity ranking with configurable relevance weights</criterion>
+    <criterion id="3">Hybrid search combining semantic and keyword matching</criterion>
+    <criterion id="4">Result diversity prevents similar code from the same files</criterion>
+    <criterion id="5">User feedback integration improves ranking quality over time</criterion>
+  </acceptanceCriteria>
+
+  <integrationPoints>
+    <integration component="SemanticSearchService" path="src/search/semantic_search.py"/>
+    <integration component="Search Filters" path="src/search/filters.py"/>
+    <integration component="RankingService" path="src/search/ranking.py"/>
+    <integration component="Vector Store" path="src/vector_db/vector_store.py"/>
+    <integration component="MCP Search Tools" path="src/mcp_server/tools/search.py"/>
+  </integrationPoints>
+
+  <design>
+    <filters>
+      <field name="authors" type="List[str]" optional="true"/>
+      <field name="modified_after" type="datetime-iso" optional="true"/>
+      <field name="modified_before" type="datetime-iso" optional="true"/>
+      <behavior>Only apply author/date filters when metadata carries those fields to preserve backward compatibility.</behavior>
+    </filters>
+    <ranking>
+      <weights>
+        <weight name="similarity" default="0.6"/>
+        <weight name="keyword" default="0.2"/>
+        <weight name="freshness" default="0.1"/>
+        <weight name="file_size" default="0.05"/>
+        <weight name="file_type" default="0.05"/>
+      </weights>
+      <feedback>Introduce FeedbackManager with upvote/downvote counts per file; provide multiplicative boost via configurable feedback_weight.</feedback>
+    </ranking>
+    <hybrid>
+      <keyword>Compute keyword_match score from query vs snippet/file_name token overlap; store in result.metadata['keyword_score'].</keyword>
+    </hybrid>
+  </design>
+
+  <tests>
+    <unit>
+      <case>Filter by authors and modification date</case>
+      <case>Keyword score computation and integration in ranking</case>
+      <case>Ranking weight updates through API and effect on result ordering</case>
+      <case>Feedback improves ranking for positively reviewed files</case>
+    </unit>
+    <integration>
+      <case>SemanticSearchService end-to-end hybrid search behavior</case>
+      <case>MCP tools expose and accept new filter/ranking parameters</case>
+    </integration>
+  </tests>
+</storyContext>
