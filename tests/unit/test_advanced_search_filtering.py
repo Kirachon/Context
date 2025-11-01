@@ -3,7 +3,7 @@ Tests for Story 2.4: Advanced Search Filtering and Ranking
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, mock_open
 
 from src.search.models import SearchResult, SearchRequest
@@ -39,7 +39,7 @@ class TestAdvancedFilters:
         assert filtered[0].metadata["author"] == "Alice"
 
     def test_filter_by_modified_date(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old = (now - timedelta(days=10)).isoformat()
         recent = (now - timedelta(days=1)).isoformat()
         results = [
@@ -109,7 +109,7 @@ class TestSemanticSearchHybrid:
         self, mock_search_vectors, _mock_embed
     ):
         # Two vector results with close similarity
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         mock_search_vectors.return_value = [
             {
                 "id": "1",

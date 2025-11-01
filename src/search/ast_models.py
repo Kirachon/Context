@@ -7,7 +7,7 @@ Enhanced search models for AST metadata and code structure search.
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SymbolType(str, Enum):
@@ -251,7 +251,7 @@ class SymbolEmbeddingPayload(BaseModel):
     is_async: bool = False
 
     # Indexing metadata
-    indexed_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    indexed_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     file_hash: Optional[str] = None
 
     # Search optimization
@@ -290,7 +290,7 @@ class ClassEmbeddingPayload(BaseModel):
     is_static: bool = False
 
     # Indexing metadata
-    indexed_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    indexed_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     file_hash: Optional[str] = None
 
     # Search optimization
@@ -317,7 +317,7 @@ class ImportEmbeddingPayload(BaseModel):
     line: Optional[int] = None
 
     # Indexing metadata
-    indexed_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    indexed_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     file_hash: Optional[str] = None
 
     # Search optimization

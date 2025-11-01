@@ -7,7 +7,7 @@ Provides AST-based semantic search tools via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 # Add project root to path
@@ -140,7 +140,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 "total_results": 0,
                 "search_time_ms": 0.0,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -225,7 +225,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 "classes": [],
                 "total_found": 0,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -255,13 +255,13 @@ def register_ast_search_tools(mcp: FastMCP):
             if not dir_path.exists():
                 return {
                     "error": f"Directory does not exist: {directory_path}",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
             if not dir_path.is_dir():
                 return {
                     "error": f"Path is not a directory: {directory_path}",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
             # Perform indexing
@@ -279,7 +279,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 "imports_indexed": result["imports_indexed"],
                 "total_time_ms": round(result["total_time_ms"], 2),
                 "recursive": result["recursive"],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -287,7 +287,7 @@ def register_ast_search_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -323,12 +323,12 @@ def register_ast_search_tools(mcp: FastMCP):
                 "search_stats": search_stats,
                 "indexing_stats": indexer_stats,
                 "storage_stats": store_stats,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Failed to get AST stats: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def ast_search_functions(
@@ -415,5 +415,5 @@ def register_ast_search_tools(mcp: FastMCP):
                 "functions": [],
                 "total_found": 0,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }

@@ -7,7 +7,7 @@ Provides server capabilities listing via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Add project root to path
@@ -84,7 +84,7 @@ def register_capability_tools(mcp: FastMCP):
                     "prompt_enhancement": "Planned - Not yet implemented",
                     "local_processing": "Enabled - 100% offline operation",
                 },
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info(f"Capabilities listed: {len(result['tools'])} tools available")
@@ -94,7 +94,7 @@ def register_capability_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error listing capabilities: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def get_configuration() -> Dict[str, Any]:
@@ -137,7 +137,7 @@ def register_capability_tools(mcp: FastMCP):
                     "min_cpu_cores": settings.min_cpu_cores,
                     "min_disk_space_gb": settings.min_disk_space_gb,
                 },
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info("Configuration information retrieved successfully")
@@ -147,6 +147,6 @@ def register_capability_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error getting configuration: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     logger.info("Capability tools registered successfully")

@@ -7,7 +7,7 @@ Provides indexing status and statistics via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Add project root to path
@@ -85,7 +85,7 @@ def register_indexing_tools(mcp: FastMCP):
                     "supported_languages": indexer_stats["supported_languages"],
                 },
                 "database": db_stats,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info("Indexing status retrieved successfully")
@@ -95,7 +95,7 @@ def register_indexing_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error getting indexing status: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     @mcp.tool()
     async def start_monitoring() -> Dict[str, Any]:
@@ -117,7 +117,7 @@ def register_indexing_tools(mcp: FastMCP):
             result = {
                 "success": True,
                 "message": "File monitoring started successfully",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info("File monitoring started via MCP tool")
@@ -128,7 +128,7 @@ def register_indexing_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -149,7 +149,7 @@ def register_indexing_tools(mcp: FastMCP):
             result = {
                 "success": True,
                 "message": "File monitoring stopped successfully",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info("File monitoring stopped via MCP tool")
@@ -160,7 +160,7 @@ def register_indexing_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     logger.info("Indexing tools registered successfully")

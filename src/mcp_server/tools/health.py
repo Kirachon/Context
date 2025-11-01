@@ -7,7 +7,7 @@ Provides health check functionality via MCP protocol.
 import sys
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Add project root to path
@@ -61,7 +61,7 @@ def register_health_tools(mcp: FastMCP):
             result = {
                 "status": health_status,
                 "version": settings.app_version,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "environment": settings.environment,
                 "services": services_status,
                 "mcp_server": {
@@ -81,7 +81,7 @@ def register_health_tools(mcp: FastMCP):
             return {
                 "status": "error",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     @mcp.tool()
@@ -106,7 +106,7 @@ def register_health_tools(mcp: FastMCP):
                 "environment": settings.environment,
                 "mcp_enabled": mcp_status["enabled"],
                 "mcp_connection_state": mcp_status["connection_state"],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.debug(f"Server info result: {result}")
@@ -114,7 +114,7 @@ def register_health_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Error getting server info: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
     logger.info("Health check tools registered successfully")
 

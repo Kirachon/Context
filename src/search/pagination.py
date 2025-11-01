@@ -9,7 +9,7 @@ import base64
 import json
 from typing import List, Optional, Dict, Any, TypeVar, Generic
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class CursorPaginator:
         if has_next:
             next_cursor = PaginationCursor(
                 offset=end,
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 hash=self._hash_items(items[end : end + page_size]),
             ).encode()
 
@@ -143,7 +143,7 @@ class CursorPaginator:
             prev_offset = max(0, offset - page_size)
             previous_cursor = PaginationCursor(
                 offset=prev_offset,
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 hash=self._hash_items(items[prev_offset : prev_offset + page_size]),
             ).encode()
 

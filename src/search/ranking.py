@@ -7,7 +7,7 @@ Result ranking and scoring logic for search results.
 import logging
 import math
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.search.feedback import get_feedback_manager
 
@@ -190,7 +190,7 @@ class RankingService:
             indexed_time = datetime.fromisoformat(
                 indexed_time_str.replace("Z", "+00:00")
             )
-            current_time = datetime.utcnow().replace(tzinfo=indexed_time.tzinfo)
+            current_time = datetime.now(timezone.utc).replace(tzinfo=indexed_time.tzinfo)
 
             # Calculate age in days
             age_days = (current_time - indexed_time).total_seconds() / (24 * 3600)

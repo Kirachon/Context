@@ -10,7 +10,7 @@ import os
 import sys
 from typing import Optional, Dict, Any
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.monitoring.metrics import metrics
 
@@ -168,7 +168,7 @@ class FileIndexer:
                 return None
 
             # Add indexing timestamp
-            metadata["indexed_time"] = datetime.utcnow()
+            metadata["indexed_time"] = datetime.now(timezone.utc)
             metadata["status"] = "indexed"
 
             # Store in database (functions imported at module level for testability)

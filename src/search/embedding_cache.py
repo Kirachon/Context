@@ -9,7 +9,7 @@ import logging
 import hashlib
 import json
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 import redis
 
@@ -141,7 +141,7 @@ class EmbeddingCache:
                 "text": text[:1000],  # Store truncated text for debugging
                 "embedding": embedding,
                 "model": model,
-                "cached_at": datetime.utcnow().isoformat(),
+                "cached_at": datetime.now(timezone.utc).isoformat(),
                 "hit_count": 0,
             }
 

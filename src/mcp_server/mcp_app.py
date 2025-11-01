@@ -11,7 +11,7 @@ import sys
 import os
 from typing import Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -320,7 +320,7 @@ class MCPServer:
             "server_name": settings.mcp_server_name,
             "version": settings.mcp_server_version,
             "capabilities": settings.mcp_capabilities,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 

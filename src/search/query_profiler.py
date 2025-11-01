@@ -7,7 +7,7 @@ Profiles and analyzes query performance for optimization.
 import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class QueryProfile:
 
     def complete(self):
         """Mark profile as complete"""
-        self.end_time = datetime.utcnow()
+        self.end_time = datetime.now(timezone.utc)
         self.total_duration = (self.end_time - self.start_time).total_seconds()
 
 
@@ -84,7 +84,7 @@ class QueryProfiler:
         Returns:
             QueryProfile instance
         """
-        profile = QueryProfile(query=query, start_time=datetime.utcnow())
+        profile = QueryProfile(query=query, start_time=datetime.now(timezone.utc))
         self.current_profile = profile
         return profile
 
