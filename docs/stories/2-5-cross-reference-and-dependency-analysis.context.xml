@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<storyContext>
+  <story id="2.5" title="Cross-Reference and Dependency Analysis">
+    <status>ready-for-dev</status>
+    <epic>Epic 2: Semantic Search & Code Intelligence</epic>
+    <priority>high</priority>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">Dependency mapping identifies calls, imports, inheritance, implementation</criterion>
+    <criterion id="2">Cross-reference analysis shows definitions and usages</criterion>
+    <criterion id="3">Impact analysis of changes (transitive dependents)</criterion>
+    <criterion id="4">Circular dependency detection</criterion>
+    <criterion id="5">Graph output suitable for visualization</criterion>
+  </acceptanceCriteria>
+
+  <integrationPoints>
+    <integration component="CrossLanguageAnalyzer" path="src/analysis/cross_language.py"/>
+    <integration component="Parsing Models" path="src/parsing/models.py"/>
+    <integration component="AST Vector Store" path="src/vector_db/ast_store.py"/>
+  </integrationPoints>
+
+  <design>
+    <service name="DependencyAnalyzer" path="src/analysis/dependency_analysis.py">
+      <responsibilities>
+        <item>Build dependency graph (file-level and symbol-level)</item>
+        <item>Find references for symbols/classes</item>
+        <item>Impact analysis using reverse graph traversal</item>
+        <item>Detect cycles using DFS/Tarjan/Kahn algorithms</item>
+      </responsibilities>
+      <output>JSON-serializable graph with nodes and edges, plus helper queries</output>
+    </service>
+  </design>
+
+  <tests>
+    <unit>
+      <case>Graph built from imports and inheritance</case>
+      <case>Cycle detection for mutual imports</case>
+      <case>Impact analysis finds transitive dependents</case>
+    </unit>
+  </tests>
+</storyContext>

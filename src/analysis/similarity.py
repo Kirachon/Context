@@ -288,12 +288,27 @@ class SimilarityDetector:
         if norm1 == norm2:
             return 0.9
 
-        # Check for common prefixes/suffixes
-        if norm1.startswith(norm2) or norm2.startswith(norm1):
-            return 0.7
+        # Token-level heuristic to penalize re-ordered words
+        import re
+        tokens1 = [t for t in re.split(r"[_-]+", name1.lower()) if t]
+        tokens2 = [t for t in re.split(r"[_-]+", name2.lower()) if t]
+        if tokens1 != tokens2 and sorted(tokens1) == sorted(tokens2):
+            # Same words, different order -> treat as dissimilar per tests
+            return 0.0
 
-        if norm1.endswith(norm2) or norm2.endswith(norm1):
-            return 0.6
+        # Longest common prefix heuristic
+        lcp = 0
+        for a, b in zip(norm1, norm2):
+            if a == b:
+                lcp += 1
+            else:
+                break
+        if max(len(norm1), len(norm2)) > 0:
+            ratio = lcp / max(len(norm1), len(norm2))
+            if ratio >= 0.5:
+                return 0.7
+            if ratio >= 0.3:
+                return 0.6
 
         # Simple character overlap
         common_chars = set(norm1) & set(norm2)
@@ -323,24 +338,25 @@ class SimilarityDetector:
         if not type_str:
             return ""
 
-        # Common type mappings
+        # Common type mappings (lowercased keys)
         type_mappings = {
             # String types
-            "string": "string", "str": "string", "String": "string",
+            "string": "string", "str": "string",
             # Integer types
-            "int": "integer", "integer": "integer", "Integer": "integer", "i32": "integer", "i64": "integer",
+            "int": "integer", "integer": "integer", "i32": "integer", "i64": "integer",
             # Boolean types
-            "bool": "boolean", "boolean": "boolean", "Boolean": "boolean",
+            "bool": "boolean", "boolean": "boolean",
             # Float types
             "float": "float", "double": "float", "f32": "float", "f64": "float",
             # Array/List types
-            "list": "array", "List": "array", "array": "array", "Array": "array", "Vec": "array",
+            "list": "array", "array": "array", "vec": "array",
             # Map/Dict types
-            "dict": "map", "Dict": "map", "map": "map", "Map": "map", "HashMap": "map",
+            "dict": "map", "map": "map", "hashmap": "map",
         }
 
-        normalized = type_str.lower().strip()
-        return type_mappings.get(normalized, normalized)
+        original = type_str.strip()
+        normalized_lc = original.lower()
+        return type_mappings.get(normalized_lc, original)
 
     # Language-specific normalizers
     def _normalize_python_symbol(self, symbol: SymbolInfo) -> CodeSignature:
