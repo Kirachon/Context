@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     reload: bool = True
     workers: int = 1
 
+    # API AuthN (optional)
+    api_auth_enabled: bool = False
+    api_auth_scheme: str = "none"  # options: none, api_key
+    api_key: Optional[str] = None
+
+    # Correlation ID
+    correlation_id_header: str = "X-Request-ID"
+
     # MCP Server configuration
     mcp_enabled: bool = True
     mcp_server_name: str = "Context"
@@ -76,6 +84,16 @@ class Settings(BaseSettings):
             # Handle comma-separated values
             return [cap.strip() for cap in v.split(',') if cap.strip()]
         return v
+    # Query cache
+    query_cache_redis_enabled: bool = False
+    cache_max_items: int = 500
+
+    # Circuit breaker (Ollama)
+    ollama_cb_enabled: bool = True
+    ollama_cb_threshold: int = 5
+    ollama_cb_window_seconds: int = 30
+    ollama_cb_cooldown_seconds: int = 20
+
     mcp_connection_timeout: int = 30
     mcp_max_retries: int = 3
 

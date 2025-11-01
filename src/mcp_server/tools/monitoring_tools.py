@@ -16,10 +16,12 @@ from src.monitoring.alerts import emit_alert, list_alerts, clear_alerts
 from src.monitoring.metrics import metrics
 from src.security.authz import require_role, Roles
 from src.security.audit import record_event
+from src.mcp_server.tools.instrumentation import instrument_tool
 
 
 def register_monitoring_tools(mcp: FastMCP):
     @mcp.tool()
+    @instrument_tool("alerts_emit")
     async def alerts_emit(key: str, level: str, message: str) -> Dict[str, Any]:
         emit_alert(key, level, message)
         return {
@@ -28,6 +30,7 @@ def register_monitoring_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("alerts_list")
     async def alerts_list(limit: int = 50) -> Dict[str, Any]:
         alerts = list_alerts(limit)
         return {
@@ -38,6 +41,7 @@ def register_monitoring_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("alerts_clear")
     @require_role([Roles.ADMIN])
     async def alerts_clear() -> Dict[str, Any]:
         clear_alerts()
@@ -47,6 +51,7 @@ def register_monitoring_tools(mcp: FastMCP):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     @mcp.tool()
+    @instrument_tool("metrics_summary")
     async def metrics_summary() -> Dict[str, Any]:
         # Minimal snapshot of defined metrics (in-process or prometheus-backed)
         try:

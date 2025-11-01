@@ -13,10 +13,12 @@ from fastmcp import FastMCP
 from src.analytics.usage import usage
 from src.security.authz import require_role, Roles
 from src.security.audit import record_event
+from src.mcp_server.tools.instrumentation import instrument_tool
 
 
 def register_analytics_tools(mcp: FastMCP):
     @mcp.tool()
+    @instrument_tool("analytics_incr")
     async def analytics_incr(key: str, count: int = 1) -> Dict[str, Any]:
         usage().incr(key, count)
         return {
@@ -26,6 +28,7 @@ def register_analytics_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("analytics_all")
     async def analytics_all() -> Dict[str, Any]:
         return {
             "success": True,
@@ -34,6 +37,7 @@ def register_analytics_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @instrument_tool("analytics_reset")
     @require_role([Roles.ADMIN])
     async def analytics_reset() -> Dict[str, Any]:
         usage().reset()
