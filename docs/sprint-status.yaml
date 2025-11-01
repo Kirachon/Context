@@ -62,8 +62,8 @@ development_status:
   2-4-code-pattern-recognition-and-categorization: done
   2-5-cross-reference-and-dependency-analysis: done
   2-6-intelligent-query-understanding-and-enhancement: done
-  2-7-performance-optimization-for-large-codebases: backlog
-  2-8-search-result-presentation-and-navigation: backlog
+  2-7-performance-optimization-for-large-codebases: done
+  2-8-search-result-presentation-and-navigation: done
   epic-2-retrospective: optional
 
   # Epic 3: Context Enhancement & Prompt Processing
