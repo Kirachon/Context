@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story_context>
+  <story_id>2.2</story_id>
+  <title>Real-time Code Intelligence</title>
+  <epic>Epic 2: Semantic Search & Code Intelligence</epic>
+  <status>not_started</status>
+  <priority>high</priority>
+  <estimated_effort>8-12 hours</estimated_effort>
+  
+  <story_description>
+    As a developer working on an active codebase,
+    I want Context to provide real-time code intelligence and suggestions,
+    So that I can get immediate insights as I write and modify code without manual re-indexing.
+  </story_description>
+  
+  <acceptance_criteria>
+    <criterion id="AC1">
+      <description>File system watching detects code changes in real-time with sub-second latency</description>
+      <technical_notes>
+        - Implement file watcher using watchdog library
+        - Monitor .py, .js, .ts, .java, .cpp, .go, .rs files
+        - Debounce rapid changes to avoid excessive processing
+        - Handle file moves, renames, and deletions
+      </technical_notes>
+    </criterion>
+    
+    <criterion id="AC2">
+      <description>Incremental indexing updates only changed files without full re-indexing</description>
+      <technical_notes>
+        - Track file modification timestamps and content hashes
+        - Update AST metadata only for changed files
+        - Maintain dependency graphs to update related files
+        - Optimize vector database updates for minimal latency
+      </technical_notes>
+    </criterion>
+    
+    <criterion id="AC3">
+      <description>Live code analysis provides suggestions and insights during development</description>
+      <technical_notes>
+        - Analyze code patterns and suggest improvements
+        - Detect potential issues and anti-patterns
+        - Provide context-aware completions and suggestions
+        - Integration with existing AST analysis from Story 2.1
+      </technical_notes>
+    </criterion>
+    
+    <criterion id="AC4">
+      <description>Performance optimization handles large codebases (10,000+ files) efficiently</description>
+      <technical_notes>
+        - Implement background processing queues
+        - Add memory management and garbage collection
+        - Optimize database queries and indexing operations
+        - Provide performance monitoring and metrics
+      </technical_notes>
+    </criterion>
+    
+    <criterion id="AC5">
+      <description>Enhanced MCP tools provide real-time query capabilities</description>
+      <technical_notes>
+        - Add real-time code analysis MCP tools
+        - Implement live suggestion endpoints
+        - Provide file change notification tools
+        - Integration with existing MCP server infrastructure
+      </technical_notes>
+    </criterion>
+  </acceptance_criteria>
+  
+  <dependencies>
+    <dependency>Story 2.1 (Advanced Code Parsing & AST Analysis) - COMPLETE</dependency>
+    <dependency>Story 1.3 (File System Monitoring) - Basic file watching foundation</dependency>
+    <dependency>Story 1.4 (Vector Database Integration) - Qdrant for incremental updates</dependency>
+    <dependency>Story 1.5 (Basic Semantic Search) - Search infrastructure</dependency>
+  </dependencies>
+  
+  <technical_approach>
+    <component name="Real-time File Watcher">
+      <description>Advanced file system monitoring with intelligent change detection</description>
+      <implementation>
+        - Extend existing file monitoring from Story 1.3
+        - Add language-specific file filtering
+        - Implement change debouncing and batching
+        - Handle edge cases (file locks, rapid changes, large files)
+      </implementation>
+    </component>
+    
+    <component name="Incremental Indexer">
+      <description>Smart indexing that updates only what changed</description>
+      <implementation>
+        - Build on AST parsing from Story 2.1
+        - Implement content hashing for change detection
+        - Create dependency tracking for related file updates
+        - Optimize vector database operations for incremental updates
+      </implementation>
+    </component>
+    
+    <component name="Live Analysis Engine">
+      <description>Real-time code analysis and suggestion system</description>
+      <implementation>
+        - Integrate with Tree-sitter pattern matching from Story 2.1
+        - Add code quality analysis and suggestions
+        - Implement context-aware recommendations
+        - Provide real-time feedback on code changes
+      </implementation>
+    </component>
+    
+    <component name="Performance Optimization">
+      <description>Scalability and performance enhancements</description>
+      <implementation>
+        - Background processing with asyncio queues
+        - Memory management and resource monitoring
+        - Database query optimization
+        - Caching strategies for frequently accessed data
+      </implementation>
+    </component>
+  </technical_approach>
+  
+  <integration_points>
+    <integration>Story 2.1 AST Analysis - Leverage existing parsing and pattern detection</integration>
+    <integration>Story 1.3 File Monitoring - Extend basic file watching capabilities</integration>
+    <integration>Story 1.4 Vector Database - Optimize for incremental updates</integration>
+    <integration>Story 1.5 Semantic Search - Real-time search result updates</integration>
+    <integration>MCP Server - Add new real-time intelligence tools</integration>
+  </integration_points>
+  
+  <success_metrics>
+    <metric>File change detection latency < 1 second</metric>
+    <metric>Incremental indexing completes in < 5 seconds for typical changes</metric>
+    <metric>Memory usage remains stable during continuous operation</metric>
+    <metric>Support for codebases with 10,000+ files without performance degradation</metric>
+    <metric>Real-time suggestions provided within 2 seconds of code changes</metric>
+  </success_metrics>
+  
+  <risks_and_mitigations>
+    <risk>
+      <description>High memory usage with large codebases</description>
+      <mitigation>Implement LRU caching and background garbage collection</mitigation>
+    </risk>
+    <risk>
+      <description>File system event storms causing performance issues</description>
+      <mitigation>Implement intelligent debouncing and rate limiting</mitigation>
+    </risk>
+    <risk>
+      <description>Complex dependency tracking between files</description>
+      <mitigation>Start with simple dependency detection, expand incrementally</mitigation>
+    </risk>
+  </risks_and_mitigations>
+</story_context>
