@@ -42,6 +42,24 @@
       "targets": [
         {"expr": "scrape_duration_seconds{job=\"context-server\"}", "refId": "A"}
       ]
+    },
+    {
+      "type": "stat",
+      "title": "Requests per second",
+      "id": 5,
+      "gridPos": {"x": 0, "y": 12, "w": 8, "h": 6},
+      "targets": [
+        {"expr": "sum(rate(http_requests_total[5m]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "HTTP p95 latency (s)",
+      "id": 6,
+      "gridPos": {"x": 8, "y": 12, "w": 16, "h": 6},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "refId": "A"}
+      ]
     }
   ]
 }
