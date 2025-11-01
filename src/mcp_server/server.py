@@ -16,11 +16,10 @@ import logging
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Configure logging (centralized)
+from src.logging.manager import configure_logging
+from src.config.settings import settings
+configure_logging(level=settings.log_level, fmt=settings.log_format)
 logger = logging.getLogger(__name__)
 
 # Application metadata
@@ -404,6 +403,39 @@ async def search_stats():
             content={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
         )
 
+
+
+# Metrics endpoints
+from fastapi import Response
+
+@app.get("/metrics")
+async def metrics_prometheus():
+    """Prometheus metrics endpoint (if prometheus_client installed)."""
+    try:
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST  # type: ignore
+        output = generate_latest()
+        return Response(content=output, media_type=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        logger.warning(f"/metrics unavailable: {e}")
+        return JSONResponse(status_code=status.HTTP_501_NOT_IMPLEMENTED, content={
+            "error": "prometheus_client not installed",
+            "timestamp": datetime.utcnow().isoformat(),
+        })
+
+@app.get("/metrics.json")
+async def metrics_json():
+    """JSON snapshot of in-process metrics."""
+    try:
+        from src.monitoring.metrics import metrics
+        counters = list(getattr(metrics, "_counters", {}).keys())
+        histograms = list(getattr(metrics, "_hists", {}).keys())
+        return {"counters": counters, "histograms": histograms, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        logger.error(f"/metrics.json error: {e}")
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        })
 
 @app.get("/", status_code=status.HTTP_200_OK)
 async def root():

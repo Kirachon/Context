@@ -13,7 +13,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
 from fastmcp import FastMCP
 from src.monitoring.alerts import emit_alert, list_alerts, clear_alerts
-from src.monitoring.metrics import get_metrics if False else None  # placeholder if metrics provide accessor
+from src.monitoring.metrics import metrics
+from src.security.authz import require_role, Roles
+from src.security.audit import record_event
 
 
 def register_monitoring_tools(mcp: FastMCP):
@@ -36,10 +38,27 @@ def register_monitoring_tools(mcp: FastMCP):
         }
 
     @mcp.tool()
+    @require_role([Roles.ADMIN])
     async def alerts_clear() -> Dict[str, Any]:
         clear_alerts()
+        record_event("alerts_clear", "mcp", {"actor_role": Roles.ADMIN})
         return {
             "success": True,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+    @mcp.tool()
+    async def metrics_summary() -> Dict[str, Any]:
+        # Minimal snapshot of defined metrics (in-process or prometheus-backed)
+        try:
+            counters = list(getattr(metrics, "_counters", {}).keys())
+            histograms = list(getattr(metrics, "_hists", {}).keys())
+        except Exception:
+            counters, histograms = [], []
+        return {
+            "success": True,
+            "counters": counters,
+            "histograms": histograms,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
 
