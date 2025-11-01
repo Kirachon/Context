@@ -21,6 +21,7 @@ from src.config.settings import settings
 
 # Configure logging (centralized)
 from src.logging.manager import configure_logging
+
 configure_logging(level=settings.log_level, fmt=settings.log_format)
 logger = logging.getLogger(__name__)
 
@@ -28,40 +29,40 @@ logger = logging.getLogger(__name__)
 class MCPServer:
     """
     MCP Server wrapper for Context application
-    
+
     Manages FastMCP server lifecycle, tool registration, and connection state.
     """
-    
+
     def __init__(self):
         """Initialize MCP server with configuration from settings"""
         self.mcp: Optional[FastMCP] = None
         self.is_running = False
         self.connection_state = "disconnected"
         self.shutdown_event = asyncio.Event()
-        
+
         logger.info(
             f"Initializing MCP Server: {settings.mcp_server_name} v{settings.mcp_server_version}"
         )
-    
+
     def create_server(self) -> FastMCP:
         """
         Create and configure FastMCP server instance
-        
+
         Returns:
             FastMCP: Configured MCP server instance
         """
         if not settings.mcp_enabled:
             logger.warning("MCP server is disabled in settings")
             return None
-        
+
         logger.info("Creating FastMCP server instance")
-        
+
         # Create FastMCP server with metadata
         mcp = FastMCP(
             name=settings.mcp_server_name,
             version=settings.mcp_server_version,
         )
-        
+
         # Register connection lifecycle handlers in a version-tolerant way
         async def handle_connect():
             """Handle client connection event"""
@@ -120,36 +121,38 @@ class MCPServer:
         _safe_register("connect", handle_connect)
         _safe_register("disconnect", handle_disconnect)
         _safe_register("error", handle_error)
-        
+
         self.mcp = mcp
         logger.info("FastMCP server instance created successfully")
         return mcp
-    
+
     async def _attempt_reconnection(self):
         """Attempt to reconnect after transient failures"""
         for attempt in range(1, settings.mcp_max_retries + 1):
             try:
-                logger.info(f"Reconnection attempt {attempt}/{settings.mcp_max_retries}")
-                await asyncio.sleep(2 ** attempt)  # Exponential backoff
-                
+                logger.info(
+                    f"Reconnection attempt {attempt}/{settings.mcp_max_retries}"
+                )
+                await asyncio.sleep(2**attempt)  # Exponential backoff
+
                 # Connection will be re-established by FastMCP framework
                 self.connection_state = "reconnecting"
                 logger.info("Reconnection successful")
                 return
-                
+
             except Exception as e:
                 logger.warning(f"Reconnection attempt {attempt} failed: {e}")
-                
+
                 if attempt == settings.mcp_max_retries:
                     logger.error("Max reconnection attempts reached")
                     self.connection_state = "failed"
-    
+
     def register_tools(self):
         """Register all MCP tool endpoints"""
         if not self.mcp:
             logger.error("Cannot register tools: MCP server not initialized")
             return
-        
+
         logger.info("Registering MCP tool endpoints")
 
         # Import and register tools
@@ -159,12 +162,22 @@ class MCPServer:
         from src.mcp_server.tools.vector import register_vector_tools
         from src.mcp_server.tools.search import register_search_tools
         from src.mcp_server.tools.pattern_search import register_pattern_search_tools
-        from src.mcp_server.tools.cross_language_analysis import register_cross_language_tools
+        from src.mcp_server.tools.cross_language_analysis import (
+            register_cross_language_tools,
+        )
         from src.mcp_server.tools.query_understanding import register_query_tools
-        from src.mcp_server.tools.cache_management import register_cache_management_tools
-        from src.mcp_server.tools.indexing_optimization import register_indexing_optimization_tools
-        from src.mcp_server.tools.query_optimization import register_query_optimization_tools
-        from src.mcp_server.tools.result_presentation import register_result_presentation_tools
+        from src.mcp_server.tools.cache_management import (
+            register_cache_management_tools,
+        )
+        from src.mcp_server.tools.indexing_optimization import (
+            register_indexing_optimization_tools,
+        )
+        from src.mcp_server.tools.query_optimization import (
+            register_query_optimization_tools,
+        )
+        from src.mcp_server.tools.result_presentation import (
+            register_result_presentation_tools,
+        )
         from src.mcp_server.tools.prompt_tools import register_prompt_tools
         from src.mcp_server.tools.security_tools import register_security_tools
         from src.mcp_server.tools.monitoring_tools import register_monitoring_tools
@@ -190,69 +203,74 @@ class MCPServer:
         register_analytics_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
-    
+
     async def start(self):
         """Start the MCP server"""
         if not settings.mcp_enabled:
             logger.warning("MCP server is disabled, skipping startup")
             return
-        
+
         logger.info("Starting MCP server...")
-        
+
         try:
             # Create server instance
             self.create_server()
-            
+
             # Register all tools
             self.register_tools()
-            
+
             # Mark as running
             self.is_running = True
             self.connection_state = "listening"
-            
+
             logger.info(
                 f"MCP server started successfully on {settings.mcp_server_name}"
             )
-            logger.info(f"Available capabilities: {', '.join(settings.mcp_capabilities)}")
-            
+            logger.info(
+                f"Available capabilities: {', '.join(settings.mcp_capabilities)}"
+            )
+
             # Setup signal handlers for graceful shutdown
             self._setup_signal_handlers()
-            
+
         except Exception as e:
             logger.error(f"Failed to start MCP server: {e}", exc_info=True)
             self.is_running = False
             raise
-    
+
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
+
         def signal_handler(signum, frame):
             """Handle shutdown signals"""
             signal_name = signal.Signals(signum).name
-            logger.info(f"Received {signal_name} signal, initiating graceful shutdown...")
-            
+            logger.info(
+                f"Received {signal_name} signal, initiating graceful shutdown..."
+            )
+
             # Trigger shutdown
             asyncio.create_task(self.shutdown())
-        
+
         # Register signal handlers
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
-        
+
         logger.debug("Signal handlers registered for SIGTERM and SIGINT")
-    
+
     async def shutdown(self, timeout: int = 10):
         """
         Gracefully shutdown the MCP server
-        
+
         Args:
             timeout: Maximum seconds to wait for cleanup before force shutdown
         """
         if not self.is_running:
             logger.warning("MCP server is not running")
             return
-        
+
         logger.info("Initiating MCP server shutdown...")
         self.is_running = False
-        
+
         try:
             # Set shutdown timeout
             async with asyncio.timeout(timeout):
@@ -287,11 +305,11 @@ class MCPServer:
                 self.shutdown_event.set()
             except Exception:
                 pass
-    
+
     def get_status(self) -> dict:
         """
         Get current MCP server status
-        
+
         Returns:
             dict: Server status information
         """
@@ -302,7 +320,7 @@ class MCPServer:
             "server_name": settings.mcp_server_name,
             "version": settings.mcp_server_version,
             "capabilities": settings.mcp_capabilities,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
 
@@ -329,9 +347,8 @@ if __name__ == "__main__":
     # Run MCP server standalone
     async def main():
         await start_mcp_server()
-        
+
         # Keep running until shutdown signal
         await mcp_server.shutdown_event.wait()
-    
-    asyncio.run(main())
 
+    asyncio.run(main())

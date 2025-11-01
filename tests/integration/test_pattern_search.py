@@ -19,7 +19,9 @@ class UserRepository:
         self.db.add(user)
         return user
 """
-    res = service.search_code("python", code, patterns=["decorator_patterns", "repository_crud"]) 
+    res = service.search_code(
+        "python", code, patterns=["decorator_patterns", "repository_crud"]
+    )
     names = {r.pattern_name for r in res}
     assert "decorator_patterns" in names
     assert "repository_crud" in names
@@ -39,7 +41,9 @@ async function fetchUser() {
   } catch (e) {}
 }
 """
-    res = service.search_code("javascript", code, patterns=["factory_classes", "async_functions"]) 
+    res = service.search_code(
+        "javascript", code, patterns=["factory_classes", "async_functions"]
+    )
     names = {r.pattern_name for r in res}
     assert "factory_classes" in names
     assert "async_functions" in names
@@ -50,7 +54,9 @@ def test_typescript_interface_impl(service):
 interface IRepo {}
 class Repo implements IRepo {}
 """
-    res = service.search_code("typescript", code, patterns=["interface_implementations"]) 
+    res = service.search_code(
+        "typescript", code, patterns=["interface_implementations"]
+    )
     assert any(r.pattern_name == "interface_implementations" for r in res)
 
 
@@ -63,7 +69,7 @@ func read() (string, error) {
   return "ok", nil
 }
 """
-    res = service.search_code("go", code, patterns=["error_handling"]) 
+    res = service.search_code("go", code, patterns=["error_handling"])
     assert any(r.pattern_name == "error_handling" for r in res)
 
 
@@ -71,6 +77,5 @@ def test_rust_result_patterns(service):
     code = """
 fn run() -> Result<i32, E> { Ok(1) }
 """
-    res = service.search_code("rust", code, patterns=["result_patterns"]) 
+    res = service.search_code("rust", code, patterns=["result_patterns"])
     assert any(r.pattern_name == "result_patterns" for r in res)
-

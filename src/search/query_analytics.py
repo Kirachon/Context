@@ -14,6 +14,7 @@ from collections import Counter
 @dataclass
 class QueryMetrics:
     """Metrics for a specific query intent"""
+
     intent: str
     count: int
     avg_results: float
@@ -24,6 +25,7 @@ class QueryMetrics:
 @dataclass
 class AnalyticsReport:
     """Comprehensive analytics report"""
+
     total_queries: int
     time_period: str
     intent_distribution: Dict[str, int]
@@ -48,11 +50,11 @@ class QueryAnalytics:
         intent: str,
         results_count: int,
         quality: float = 0.0,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ):
         """
         Add query record for analytics
-        
+
         Args:
             query: Query string
             intent: Query intent
@@ -66,7 +68,7 @@ class QueryAnalytics:
             "results_count": results_count,
             "quality": quality,
             "tags": tags or [],
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
         }
         self.query_records.append(record)
 
@@ -78,24 +80,32 @@ class QueryAnalytics:
     def get_intent_metrics(self) -> Dict[str, QueryMetrics]:
         """Get detailed metrics for each intent"""
         metrics = {}
-        
+
         for intent in set(r["intent"] for r in self.query_records):
             intent_records = [r for r in self.query_records if r["intent"] == intent]
-            
+
             count = len(intent_records)
-            avg_results = sum(r["results_count"] for r in intent_records) / count if count > 0 else 0
-            
+            avg_results = (
+                sum(r["results_count"] for r in intent_records) / count
+                if count > 0
+                else 0
+            )
+
             rated_records = [r for r in intent_records if r["quality"] > 0]
-            avg_quality = sum(r["quality"] for r in rated_records) / len(rated_records) if rated_records else 0
-            
+            avg_quality = (
+                sum(r["quality"] for r in rated_records) / len(rated_records)
+                if rated_records
+                else 0
+            )
+
             metrics[intent] = QueryMetrics(
                 intent=intent,
                 count=count,
                 avg_results=avg_results,
                 avg_quality=avg_quality,
-                total_quality_ratings=len(rated_records)
+                total_quality_ratings=len(rated_records),
             )
-        
+
         return metrics
 
     def get_top_queries(self, limit: int = 10) -> List[tuple]:
@@ -108,7 +118,9 @@ class QueryAnalytics:
         """Get average number of results per query"""
         if not self.query_records:
             return 0.0
-        return sum(r["results_count"] for r in self.query_records) / len(self.query_records)
+        return sum(r["results_count"] for r in self.query_records) / len(
+            self.query_records
+        )
 
     def get_average_quality(self) -> float:
         """Get average quality score"""
@@ -130,38 +142,33 @@ class QueryAnalytics:
         return [r for r in self.query_records if tag in r["tags"]]
 
     def get_queries_by_time_range(
-        self,
-        start_time: datetime,
-        end_time: datetime
+        self, start_time: datetime, end_time: datetime
     ) -> List[Dict[str, Any]]:
         """Get queries within time range"""
         return [
-            r for r in self.query_records
-            if start_time <= r["timestamp"] <= end_time
+            r for r in self.query_records if start_time <= r["timestamp"] <= end_time
         ]
 
     def generate_report(
-        self,
-        time_period: str = "all_time",
-        intent_filter: Optional[str] = None
+        self, time_period: str = "all_time", intent_filter: Optional[str] = None
     ) -> AnalyticsReport:
         """
         Generate comprehensive analytics report
-        
+
         Args:
             time_period: "all_time", "today", "week", "month"
             intent_filter: Optional specific intent to filter by
-            
+
         Returns:
             AnalyticsReport with all metrics
         """
         # Filter by time period
         records = self._filter_by_time_period(time_period)
-        
+
         # Filter by intent if specified
         if intent_filter:
             records = [r for r in records if r["intent"] == intent_filter]
-        
+
         if not records:
             return AnalyticsReport(
                 total_queries=0,
@@ -171,36 +178,44 @@ class QueryAnalytics:
                 top_queries=[],
                 avg_results_per_query=0.0,
                 avg_quality_score=0.0,
-                high_quality_ratio=0.0
+                high_quality_ratio=0.0,
             )
-        
+
         # Calculate metrics
         intent_dist = Counter(r["intent"] for r in records)
-        
+
         intent_metrics = {}
         for intent in intent_dist.keys():
             intent_records = [r for r in records if r["intent"] == intent]
             count = len(intent_records)
             avg_results = sum(r["results_count"] for r in intent_records) / count
-            
+
             rated = [r for r in intent_records if r["quality"] > 0]
             avg_quality = sum(r["quality"] for r in rated) / len(rated) if rated else 0
-            
+
             intent_metrics[intent] = QueryMetrics(
                 intent=intent,
                 count=count,
                 avg_results=avg_results,
                 avg_quality=avg_quality,
-                total_quality_ratings=len(rated)
+                total_quality_ratings=len(rated),
             )
-        
+
         top_queries = Counter(r["query"] for r in records).most_common(10)
         avg_results = sum(r["results_count"] for r in records) / len(records)
-        
+
         rated_records = [r for r in records if r["quality"] > 0]
-        avg_quality = sum(r["quality"] for r in rated_records) / len(rated_records) if rated_records else 0
-        high_quality_ratio = len([r for r in rated_records if r["quality"] >= 0.7]) / len(rated_records) if rated_records else 0
-        
+        avg_quality = (
+            sum(r["quality"] for r in rated_records) / len(rated_records)
+            if rated_records
+            else 0
+        )
+        high_quality_ratio = (
+            len([r for r in rated_records if r["quality"] >= 0.7]) / len(rated_records)
+            if rated_records
+            else 0
+        )
+
         return AnalyticsReport(
             total_queries=len(records),
             time_period=time_period,
@@ -209,13 +224,13 @@ class QueryAnalytics:
             top_queries=top_queries,
             avg_results_per_query=avg_results,
             avg_quality_score=avg_quality,
-            high_quality_ratio=high_quality_ratio
+            high_quality_ratio=high_quality_ratio,
         )
 
     def _filter_by_time_period(self, time_period: str) -> List[Dict[str, Any]]:
         """Filter records by time period"""
         now = datetime.now()
-        
+
         if time_period == "all_time":
             return self.query_records
         elif time_period == "today":
@@ -233,4 +248,3 @@ class QueryAnalytics:
     def clear_records(self):
         """Clear all analytics records"""
         self.query_records.clear()
-

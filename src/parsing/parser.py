@@ -8,7 +8,15 @@ import time
 from pathlib import Path
 from typing import Dict, Optional, List, Any
 import logging
-from .models import Language, ParseResult, ASTNode, SymbolInfo, ImportInfo, ClassInfo, RelationshipInfo
+from .models import (
+    Language,
+    ParseResult,
+    ASTNode,
+    SymbolInfo,
+    ImportInfo,
+    ClassInfo,
+    RelationshipInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,24 +27,24 @@ _parser_cache: Dict[Language, Any] = {}
 def detect_language(file_path: Path) -> Optional[Language]:
     """Detect programming language from file extension."""
     suffix = file_path.suffix.lower()
-    
+
     language_map = {
-        '.py': Language.PYTHON,
-        '.js': Language.JAVASCRIPT,
-        '.jsx': Language.JAVASCRIPT,
-        '.ts': Language.TYPESCRIPT,
-        '.tsx': Language.TYPESCRIPT,
-        '.java': Language.JAVA,
-        '.cpp': Language.CPP,
-        '.cc': Language.CPP,
-        '.cxx': Language.CPP,
-        '.c++': Language.CPP,
-        '.hpp': Language.CPP,
-        '.h': Language.CPP,
-        '.go': Language.GO,
-        '.rs': Language.RUST,
+        ".py": Language.PYTHON,
+        ".js": Language.JAVASCRIPT,
+        ".jsx": Language.JAVASCRIPT,
+        ".ts": Language.TYPESCRIPT,
+        ".tsx": Language.TYPESCRIPT,
+        ".java": Language.JAVA,
+        ".cpp": Language.CPP,
+        ".cc": Language.CPP,
+        ".cxx": Language.CPP,
+        ".c++": Language.CPP,
+        ".hpp": Language.CPP,
+        ".h": Language.CPP,
+        ".go": Language.GO,
+        ".rs": Language.RUST,
     }
-    
+
     return language_map.get(suffix)
 
 
@@ -75,14 +83,16 @@ def _get_tree_sitter_parser(language: Language):
 def _tree_sitter_node_to_ast_node(ts_node, source_bytes: bytes) -> ASTNode:
     """Convert tree-sitter node to our ASTNode representation."""
     # Extract text for this node
-    node_text = source_bytes[ts_node.start_byte:ts_node.end_byte].decode('utf-8', errors='replace')
+    node_text = source_bytes[ts_node.start_byte : ts_node.end_byte].decode(
+        "utf-8", errors="replace"
+    )
 
     # Handle different tree-sitter versions for point access
     try:
         # Try new tuple format first (tree-sitter 0.21+)
         if isinstance(ts_node.start_point, tuple):
             start_point = ts_node.start_point  # (row, column)
-            end_point = ts_node.end_point      # (row, column)
+            end_point = ts_node.end_point  # (row, column)
         else:
             # Fallback to object format (older versions)
             start_point = (ts_node.start_point.row, ts_node.start_point.column)
@@ -99,7 +109,7 @@ def _tree_sitter_node_to_ast_node(ts_node, source_bytes: bytes) -> ASTNode:
         start_byte=ts_node.start_byte,
         end_byte=ts_node.end_byte,
         start_point=start_point,
-        end_point=end_point
+        end_point=end_point,
     )
 
     # Recursively convert children
@@ -113,25 +123,27 @@ def _tree_sitter_node_to_ast_node(ts_node, source_bytes: bytes) -> ASTNode:
 
 class CodeParser:
     """Main code parser using tree-sitter for AST generation."""
-    
+
     def __init__(self):
         """Initialize the code parser."""
         self.supported_languages = set(Language)
-        logger.info(f"CodeParser initialized with support for: {[lang.value for lang in self.supported_languages]}")
-    
+        logger.info(
+            f"CodeParser initialized with support for: {[lang.value for lang in self.supported_languages]}"
+        )
+
     def parse(self, file_path: Path, content: Optional[str] = None) -> ParseResult:
         """
         Parse a code file and return comprehensive AST and structure information.
-        
+
         Args:
             file_path: Path to the code file
             content: Optional file content (if None, will read from file_path)
-            
+
         Returns:
             ParseResult with AST, symbols, imports, and metadata
         """
         start_time = time.time()
-        
+
         # Detect language
         language = detect_language(file_path)
         if not language:
@@ -141,13 +153,13 @@ class CodeParser:
                 ast_root=None,
                 parse_success=False,
                 parse_error=f"Unsupported file extension: {file_path.suffix}",
-                parse_time_ms=(time.time() - start_time) * 1000
+                parse_time_ms=(time.time() - start_time) * 1000,
             )
-        
+
         # Read content if not provided
         if content is None:
             try:
-                content = file_path.read_text(encoding='utf-8')
+                content = file_path.read_text(encoding="utf-8")
             except Exception as e:
                 return ParseResult(
                     file_path=file_path,
@@ -155,9 +167,9 @@ class CodeParser:
                     ast_root=None,
                     parse_success=False,
                     parse_error=f"Failed to read file: {e}",
-                    parse_time_ms=(time.time() - start_time) * 1000
+                    parse_time_ms=(time.time() - start_time) * 1000,
                 )
-        
+
         # Get parser for this language
         parser = _get_tree_sitter_parser(language)
         if not parser:
@@ -167,26 +179,32 @@ class CodeParser:
                 ast_root=None,
                 parse_success=False,
                 parse_error=f"Parser not available for {language.value}",
-                parse_time_ms=(time.time() - start_time) * 1000
+                parse_time_ms=(time.time() - start_time) * 1000,
             )
-        
+
         try:
             # Parse the code
-            source_bytes = content.encode('utf-8')
+            source_bytes = content.encode("utf-8")
             tree = parser.parse(source_bytes)
-            
+
             # Convert to our AST representation
             ast_root = _tree_sitter_node_to_ast_node(tree.root_node, source_bytes)
 
             # Extract symbols, classes, imports, and relationships
             symbol_start_time = time.time()
-            symbols, classes, imports, relationships = self._extract_symbols(ast_root, language)
+            symbols, classes, imports, relationships = self._extract_symbols(
+                ast_root, language
+            )
             symbol_extraction_time_ms = (time.time() - symbol_start_time) * 1000
 
             parse_time_ms = (time.time() - start_time) * 1000
-            logger.debug(f"Successfully parsed {file_path} ({language.value}) in {parse_time_ms:.2f}ms")
+            logger.debug(
+                f"Successfully parsed {file_path} ({language.value}) in {parse_time_ms:.2f}ms"
+            )
             logger.debug(f"Symbol extraction took {symbol_extraction_time_ms:.2f}ms")
-            logger.debug(f"Extracted {len(symbols)} symbols, {len(classes)} classes, {len(imports)} imports")
+            logger.debug(
+                f"Extracted {len(symbols)} symbols, {len(classes)} classes, {len(imports)} imports"
+            )
 
             return ParseResult(
                 file_path=file_path,
@@ -198,9 +216,9 @@ class CodeParser:
                 relationships=relationships,
                 parse_success=True,
                 parse_time_ms=parse_time_ms,
-                symbol_extraction_time_ms=symbol_extraction_time_ms
+                symbol_extraction_time_ms=symbol_extraction_time_ms,
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to parse {file_path}: {e}")
             return ParseResult(
@@ -209,15 +227,18 @@ class CodeParser:
                 ast_root=None,
                 parse_success=False,
                 parse_error=str(e),
-                parse_time_ms=(time.time() - start_time) * 1000
+                parse_time_ms=(time.time() - start_time) * 1000,
             )
 
-    def _extract_symbols(self, ast_root: ASTNode, language: Language) -> tuple[
+    def _extract_symbols(
+        self, ast_root: ASTNode, language: Language
+    ) -> tuple[
         List[SymbolInfo], List[ClassInfo], List[ImportInfo], List[RelationshipInfo]
     ]:
         """Extract symbols from AST using language-specific extractors."""
         try:
             from .extractors import get_symbol_extractor
+
             extractor = get_symbol_extractor()
             return extractor.extract_symbols(ast_root, language)
         except Exception as e:

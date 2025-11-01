@@ -60,4 +60,3 @@ class RateLimiter:
                 self._calls.append(now)
                 return True
             return False
-

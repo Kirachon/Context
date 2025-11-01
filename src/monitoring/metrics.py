@@ -4,11 +4,12 @@ Lightweight Metrics (Enterprise-grade foundation)
 Provides simple counters and timers with optional Prometheus integration.
 Falls back to in-process storage if prometheus_client is unavailable.
 """
+
 from __future__ import annotations
 
 import time
 import threading
-from typing import Dict, Tuple, Callable, Optional
+from typing import Dict, Tuple, Callable
 
 try:  # Optional dependency
     from prometheus_client import Counter as PCounter, Histogram as PHistogram  # type: ignore
@@ -38,7 +39,13 @@ class _InProcCounter:
 
 
 class _InProcHistogram:
-    def __init__(self, name: str, documentation: str, labelnames: Tuple[str, ...] = (), buckets: Tuple[float, ...] = (0.1, 0.5, 1, 2, 5, 10)):
+    def __init__(
+        self,
+        name: str,
+        documentation: str,
+        labelnames: Tuple[str, ...] = (),
+        buckets: Tuple[float, ...] = (0.1, 0.5, 1, 2, 5, 10),
+    ):
         self.name = name
         self.doc = documentation
         self.labelnames = labelnames
@@ -71,7 +78,13 @@ class Metrics:
                 self._counters[name] = _InProcCounter(name, doc, labelnames)
         return self._counters[name]
 
-    def histogram(self, name: str, doc: str, labelnames: Tuple[str, ...] = (), buckets: Tuple[float, ...] = (0.1, 0.5, 1, 2, 5, 10)):
+    def histogram(
+        self,
+        name: str,
+        doc: str,
+        labelnames: Tuple[str, ...] = (),
+        buckets: Tuple[float, ...] = (0.1, 0.5, 1, 2, 5, 10),
+    ):
         if name not in self._hists:
             if PHistogram is not None:
                 self._hists[name] = PHistogram(name, doc, labelnames, buckets=buckets)
@@ -79,7 +92,9 @@ class Metrics:
                 self._hists[name] = _InProcHistogram(name, doc, labelnames, buckets)
         return self._hists[name]
 
-    def timed(self, name: str, doc: str = "", labelnames: Tuple[str, ...] = ()):  # decorator
+    def timed(
+        self, name: str, doc: str = "", labelnames: Tuple[str, ...] = ()
+    ):  # decorator
         hist = self.histogram(name, doc, labelnames)
 
         def decorator(fn: Callable):
@@ -93,9 +108,10 @@ class Metrics:
                         hist.labels().observe(dur)
                     except Exception:
                         pass
+
             return wrapper
+
         return decorator
 
 
 metrics = Metrics()
-

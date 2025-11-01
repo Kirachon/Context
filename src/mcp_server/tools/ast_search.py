@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 def register_ast_search_tools(mcp: FastMCP):
     """
     Register AST search tools with MCP server
-    
+
     Args:
         mcp: FastMCP server instance
     """
-    
+
     @mcp.tool()
     async def ast_semantic_search(
         query: str,
@@ -36,15 +36,15 @@ def register_ast_search_tools(mcp: FastMCP):
         symbol_types: Optional[List[str]] = None,
         languages: Optional[List[str]] = None,
         search_scope: str = "all",
-        min_score: float = 0.0
+        min_score: float = 0.0,
     ) -> Dict[str, Any]:
         """
         Advanced semantic search over code structure and symbols
-        
+
         Performs semantic search over parsed AST metadata including functions,
         classes, imports, and their relationships. Provides rich filtering
         by symbol types, languages, and code structure.
-        
+
         Args:
             query: Natural language search query (e.g., "async functions with error handling")
             limit: Maximum number of results to return (1-100, default: 10)
@@ -52,12 +52,12 @@ def register_ast_search_tools(mcp: FastMCP):
             languages: Filter by programming languages (python, javascript, etc.)
             search_scope: Search scope (all, symbols, classes, imports, default: all)
             min_score: Minimum similarity score (0.0-1.0, default: 0.0)
-        
+
         Returns:
             Dict containing AST search results with detailed symbol information
         """
         logger.info(f"MCP AST search invoked: {query}")
-        
+
         try:
             # Convert string symbol types to enum
             symbol_type_enums = None
@@ -68,14 +68,14 @@ def register_ast_search_tools(mcp: FastMCP):
                         symbol_type_enums.append(SymbolType(st.lower()))
                     except ValueError:
                         logger.warning(f"Invalid symbol type: {st}")
-            
+
             # Convert search scope
             try:
                 scope_enum = SearchScope(search_scope.lower())
             except ValueError:
                 logger.warning(f"Invalid search scope: {search_scope}, using 'all'")
                 scope_enum = SearchScope.ALL
-            
+
             # Create search request
             request = ASTSearchRequest(
                 query=query,
@@ -83,13 +83,13 @@ def register_ast_search_tools(mcp: FastMCP):
                 symbol_types=symbol_type_enums,
                 languages=languages,
                 search_scope=scope_enum,
-                min_score=max(0.0, min(min_score, 1.0))
+                min_score=max(0.0, min(min_score, 1.0)),
             )
-            
+
             # Perform search
             search_service = get_ast_search_service()
             response = await search_service.search(request)
-            
+
             # Convert to MCP response format
             results = []
             for result in response.results:
@@ -99,7 +99,9 @@ def register_ast_search_tools(mcp: FastMCP):
                     "language": result.language,
                     "similarity_score": round(result.similarity_score, 4),
                     "symbol_name": result.symbol_name,
-                    "symbol_type": result.symbol_type.value if result.symbol_type else None,
+                    "symbol_type": (
+                        result.symbol_type.value if result.symbol_type else None
+                    ),
                     "line_start": result.line_start,
                     "line_end": result.line_end,
                     "signature": result.signature,
@@ -113,10 +115,10 @@ def register_ast_search_tools(mcp: FastMCP):
                     "is_static": result.is_static,
                     "is_abstract": result.is_abstract,
                     "is_async": result.is_async,
-                    "metadata": result.metadata
+                    "metadata": result.metadata,
                 }
                 results.append(result_dict)
-            
+
             return {
                 "query": response.query,
                 "results": results,
@@ -127,9 +129,9 @@ def register_ast_search_tools(mcp: FastMCP):
                 "imports_found": response.imports_found,
                 "filters_applied": response.filters_applied,
                 "languages_searched": response.languages_searched,
-                "timestamp": response.timestamp
+                "timestamp": response.timestamp,
             }
-            
+
         except Exception as e:
             logger.error(f"AST search failed: {e}", exc_info=True)
             return {
@@ -138,7 +140,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 "total_results": 0,
                 "search_time_ms": 0.0,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     @mcp.tool()
@@ -148,7 +150,7 @@ def register_ast_search_tools(mcp: FastMCP):
         languages: Optional[List[str]] = None,
         is_abstract: Optional[bool] = None,
         has_inheritance: Optional[bool] = None,
-        implements_interface: Optional[bool] = None
+        implements_interface: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Search for classes and interfaces with inheritance filtering
@@ -178,7 +180,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 search_scope=SearchScope.CLASSES,
                 is_abstract=is_abstract,
                 has_inheritance=has_inheritance,
-                implements_interface=implements_interface
+                implements_interface=implements_interface,
             )
 
             # Perform search
@@ -203,7 +205,7 @@ def register_ast_search_tools(mcp: FastMCP):
                     "decorators": result.decorators,
                     "methods": result.metadata.get("methods", []),
                     "fields": result.metadata.get("fields", []),
-                    "similarity_score": round(result.similarity_score, 4)
+                    "similarity_score": round(result.similarity_score, 4),
                 }
                 classes.append(class_dict)
 
@@ -213,7 +215,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 "total_found": response.total_results,
                 "search_time_ms": round(response.search_time_ms, 2),
                 "filters_applied": response.filters_applied,
-                "timestamp": response.timestamp
+                "timestamp": response.timestamp,
             }
 
         except Exception as e:
@@ -223,13 +225,12 @@ def register_ast_search_tools(mcp: FastMCP):
                 "classes": [],
                 "total_found": 0,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     @mcp.tool()
     async def ast_index_directory(
-        directory_path: str,
-        recursive: bool = True
+        directory_path: str, recursive: bool = True
     ) -> Dict[str, Any]:
         """
         Index a directory for AST-based search
@@ -254,13 +255,13 @@ def register_ast_search_tools(mcp: FastMCP):
             if not dir_path.exists():
                 return {
                     "error": f"Directory does not exist: {directory_path}",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.utcnow().isoformat(),
                 }
 
             if not dir_path.is_dir():
                 return {
                     "error": f"Path is not a directory: {directory_path}",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.utcnow().isoformat(),
                 }
 
             # Perform indexing
@@ -278,7 +279,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 "imports_indexed": result["imports_indexed"],
                 "total_time_ms": round(result["total_time_ms"], 2),
                 "recursive": result["recursive"],
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
@@ -286,7 +287,7 @@ def register_ast_search_tools(mcp: FastMCP):
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     @mcp.tool()
@@ -314,6 +315,7 @@ def register_ast_search_tools(mcp: FastMCP):
 
             # Get AST store stats
             from src.vector_db.ast_store import get_ast_vector_store
+
             ast_store = get_ast_vector_store()
             store_stats = ast_store.get_stats()
 
@@ -321,16 +323,13 @@ def register_ast_search_tools(mcp: FastMCP):
                 "search_stats": search_stats,
                 "indexing_stats": indexer_stats,
                 "storage_stats": store_stats,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Failed to get AST stats: {e}", exc_info=True)
-            return {
-                "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
-            }
-    
+            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+
     @mcp.tool()
     async def ast_search_functions(
         query: str,
@@ -339,14 +338,14 @@ def register_ast_search_tools(mcp: FastMCP):
         is_async: Optional[bool] = None,
         has_parameters: Optional[bool] = None,
         has_return_type: Optional[bool] = None,
-        visibility: Optional[str] = None
+        visibility: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Search for functions and methods with advanced filtering
-        
+
         Specialized search for functions and methods with detailed filtering
         options for async functions, parameters, return types, and visibility.
-        
+
         Args:
             query: Natural language search query
             limit: Maximum number of results (1-100, default: 10)
@@ -355,12 +354,12 @@ def register_ast_search_tools(mcp: FastMCP):
             has_parameters: Filter functions with/without parameters (true/false)
             has_return_type: Filter functions with/without return types (true/false)
             visibility: Filter by visibility (public, private, protected)
-        
+
         Returns:
             Dict containing function search results
         """
         logger.info(f"MCP function search invoked: {query}")
-        
+
         try:
             # Create search request for functions only
             request = ASTSearchRequest(
@@ -372,13 +371,13 @@ def register_ast_search_tools(mcp: FastMCP):
                 is_async=is_async,
                 has_parameters=has_parameters,
                 has_return_type=has_return_type,
-                visibility=visibility
+                visibility=visibility,
             )
-            
+
             # Perform search
             search_service = get_ast_search_service()
             response = await search_service.search(request)
-            
+
             # Convert to simplified function format
             functions = []
             for result in response.results:
@@ -396,19 +395,19 @@ def register_ast_search_tools(mcp: FastMCP):
                     "is_static": result.is_static,
                     "visibility": result.visibility,
                     "decorators": result.decorators,
-                    "similarity_score": round(result.similarity_score, 4)
+                    "similarity_score": round(result.similarity_score, 4),
                 }
                 functions.append(function_dict)
-            
+
             return {
                 "query": response.query,
                 "functions": functions,
                 "total_found": response.total_results,
                 "search_time_ms": round(response.search_time_ms, 2),
                 "filters_applied": response.filters_applied,
-                "timestamp": response.timestamp
+                "timestamp": response.timestamp,
             }
-            
+
         except Exception as e:
             logger.error(f"Function search failed: {e}", exc_info=True)
             return {
@@ -416,5 +415,5 @@ def register_ast_search_tools(mcp: FastMCP):
                 "functions": [],
                 "total_found": 0,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }

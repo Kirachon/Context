@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class ChangeType(Enum):
     """File change types"""
+
     CREATED = "created"
     MODIFIED = "modified"
     DELETED = "deleted"
@@ -31,6 +32,7 @@ class ChangeType(Enum):
 
 class IndexingState(Enum):
     """Indexing states"""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -40,10 +42,10 @@ class IndexingState(Enum):
 class IndexingQueue:
     """
     Indexing Queue Manager
-    
+
     Manages background processing of file changes with incremental updates.
     """
-    
+
     def __init__(self):
         """Initialize indexing queue"""
         self.queue = deque()
@@ -54,22 +56,30 @@ class IndexingQueue:
             "total_failed": 0,
             "pending_count": 0,
             "last_processing_time": None,
-            "processing_duration": 0
+            "processing_duration": 0,
         }
         self.current_item: Optional[Dict[str, Any]] = None
 
         # Metrics
-        self.c_queued = metrics.counter("indexing_queued_total", "Items queued", ("change_type",))
-        self.c_processed = metrics.counter("indexing_processed_total", "Items processed", ("status",))
-        self.h_item = metrics.histogram("indexing_item_seconds", "Indexing item latency")
-        self.h_run = metrics.histogram("indexing_processing_seconds", "Queue processing latency")
+        self.c_queued = metrics.counter(
+            "indexing_queued_total", "Items queued", ("change_type",)
+        )
+        self.c_processed = metrics.counter(
+            "indexing_processed_total", "Items processed", ("status",)
+        )
+        self.h_item = metrics.histogram(
+            "indexing_item_seconds", "Indexing item latency"
+        )
+        self.h_run = metrics.histogram(
+            "indexing_processing_seconds", "Queue processing latency"
+        )
 
         logger.info("IndexingQueue initialized")
 
     async def add(self, change_type: str, file_path: str):
         """
         Add file change to queue
-        
+
         Args:
             change_type: Type of change (created, modified, deleted)
             file_path: Path to changed file
@@ -79,16 +89,16 @@ class IndexingQueue:
         except ValueError:
             logger.error(f"Invalid change type: {change_type}")
             return
-        
+
         item = {
             "change_type": change_type_enum,
             "file_path": file_path,
             "state": IndexingState.PENDING,
             "queued_time": datetime.utcnow(),
             "processed_time": None,
-            "error": None
+            "error": None,
         }
-        
+
         self.queue.append(item)
         self.stats["total_queued"] += 1
         self.stats["pending_count"] = len(self.queue)
@@ -97,7 +107,9 @@ class IndexingQueue:
         except Exception:
             pass
 
-        logger.info(f"Added to queue: {change_type} - {file_path} (queue size: {len(self.queue)})")
+        logger.info(
+            f"Added to queue: {change_type} - {file_path} (queue size: {len(self.queue)})"
+        )
 
         # Start processing if not already running
         if not self.processing:
@@ -108,7 +120,7 @@ class IndexingQueue:
         if self.processing:
             logger.debug("Queue processing already in progress")
             return
-        
+
         self.processing = True
         logger.info("Starting queue processing...")
 
@@ -146,13 +158,13 @@ class IndexingQueue:
     async def _process_item(self, item: Dict[str, Any]):
         """
         Process a single queue item
-        
+
         Args:
             item: Queue item to process
         """
         change_type = item["change_type"]
         file_path = item["file_path"]
-        
+
         logger.info(f"Processing: {change_type.value} - {file_path}")
 
         item["state"] = IndexingState.PROCESSING
@@ -162,13 +174,15 @@ class IndexingQueue:
             if change_type == ChangeType.CREATED or change_type == ChangeType.MODIFIED:
                 # Index or update file
                 metadata = await file_indexer.index_file(file_path)
-                
+
                 if metadata:
                     item["state"] = IndexingState.COMPLETED
                     item["metadata"] = metadata
                     self.stats["total_processed"] += 1
                     try:
-                        self.h_item.labels().observe(asyncio.get_event_loop().time() - _t0)
+                        self.h_item.labels().observe(
+                            asyncio.get_event_loop().time() - _t0
+                        )
                         self.c_processed.labels("ok").inc()
                     except Exception:
                         pass
@@ -178,7 +192,9 @@ class IndexingQueue:
                     item["error"] = "Failed to extract metadata"
                     self.stats["total_failed"] += 1
                     try:
-                        self.h_item.labels().observe(asyncio.get_event_loop().time() - _t0)
+                        self.h_item.labels().observe(
+                            asyncio.get_event_loop().time() - _t0
+                        )
                         self.c_processed.labels("failed").inc()
                     except Exception:
                         pass
@@ -187,12 +203,14 @@ class IndexingQueue:
             elif change_type == ChangeType.DELETED:
                 # Remove file from index
                 success = await file_indexer.remove_file(file_path)
-                
+
                 if success:
                     item["state"] = IndexingState.COMPLETED
                     self.stats["total_processed"] += 1
                     try:
-                        self.h_item.labels().observe(asyncio.get_event_loop().time() - _t0)
+                        self.h_item.labels().observe(
+                            asyncio.get_event_loop().time() - _t0
+                        )
                         self.c_processed.labels("ok").inc()
                     except Exception:
                         pass
@@ -202,46 +220,56 @@ class IndexingQueue:
                     item["error"] = "Failed to remove file"
                     self.stats["total_failed"] += 1
                     try:
-                        self.h_item.labels().observe(asyncio.get_event_loop().time() - _t0)
+                        self.h_item.labels().observe(
+                            asyncio.get_event_loop().time() - _t0
+                        )
                         self.c_processed.labels("failed").inc()
                     except Exception:
                         pass
                     logger.warning(f"Failed to remove: {file_path}")
 
             item["processed_time"] = datetime.utcnow()
-            
+
         except Exception as e:
             item["state"] = IndexingState.FAILED
             item["error"] = str(e)
             item["processed_time"] = datetime.utcnow()
             self.stats["total_failed"] += 1
             logger.error(f"Error processing {file_path}: {e}", exc_info=True)
-    
+
     def get_status(self) -> Dict[str, Any]:
         """
         Get queue status
-        
+
         Returns:
             dict: Queue status and statistics
         """
         return {
             "processing": self.processing,
             "queue_size": len(self.queue),
-            "current_item": {
-                "file_path": self.current_item["file_path"],
-                "change_type": self.current_item["change_type"].value,
-                "state": self.current_item["state"].value
-            } if self.current_item else None,
+            "current_item": (
+                {
+                    "file_path": self.current_item["file_path"],
+                    "change_type": self.current_item["change_type"].value,
+                    "state": self.current_item["state"].value,
+                }
+                if self.current_item
+                else None
+            ),
             "stats": {
                 "total_queued": self.stats["total_queued"],
                 "total_processed": self.stats["total_processed"],
                 "total_failed": self.stats["total_failed"],
                 "pending_count": self.stats["pending_count"],
-                "last_processing_time": self.stats["last_processing_time"].isoformat() if self.stats["last_processing_time"] else None,
-                "processing_duration": self.stats["processing_duration"]
-            }
+                "last_processing_time": (
+                    self.stats["last_processing_time"].isoformat()
+                    if self.stats["last_processing_time"]
+                    else None
+                ),
+                "processing_duration": self.stats["processing_duration"],
+            },
         }
-    
+
     def clear(self):
         """Clear the queue"""
         self.queue.clear()
@@ -256,7 +284,7 @@ indexing_queue = IndexingQueue()
 async def queue_file_change(change_type: str, file_path: str):
     """
     Queue a file change for processing (entry point for file monitor)
-    
+
     Args:
         change_type: Type of change (created, modified, deleted)
         file_path: Path to changed file
@@ -267,4 +295,3 @@ async def queue_file_change(change_type: str, file_path: str):
 def get_queue_status() -> Dict[str, Any]:
     """Get queue status (entry point for status endpoints)"""
     return indexing_queue.get_status()
-

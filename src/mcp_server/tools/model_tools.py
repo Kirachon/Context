@@ -47,10 +47,11 @@ def register_model_tools(mcp: FastMCP):
     async def model_set_default(name: str) -> Dict[str, Any]:
         mm = get_model_manager()
         mm.set_default_model(name)
-        record_event("model_set_default", "mcp", {"name": name, "actor_role": Roles.ADMIN})
+        record_event(
+            "model_set_default", "mcp", {"name": name, "actor_role": Roles.ADMIN}
+        )
         return {
             "success": True,
             "default_model": mm.get_default_model(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-

@@ -51,4 +51,3 @@ def get_context_enhancer() -> ContextEnhancer:
     if _context_enhancer is None:
         _context_enhancer = ContextEnhancer()
     return _context_enhancer
-

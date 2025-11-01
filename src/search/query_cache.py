@@ -21,10 +21,13 @@ class QueryCache:
 
     def _key(self, query: str, filters: Optional[Dict[str, Any]] = None) -> str:
         import json
+
         parts = [query, json.dumps(filters or {}, sort_keys=True)]
         return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
-    def get(self, query: str, filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    def get(
+        self, query: str, filters: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
         k = self._key(query, filters)
         with self._lock:
             item = self._store.get(k)
@@ -35,7 +38,12 @@ class QueryCache:
                 return None
             return item["value"]
 
-    def set(self, query: str, value: Dict[str, Any], filters: Optional[Dict[str, Any]] = None):
+    def set(
+        self,
+        query: str,
+        value: Dict[str, Any],
+        filters: Optional[Dict[str, Any]] = None,
+    ):
         k = self._key(query, filters)
         with self._lock:
             self._store[k] = {"value": value, "ts": time.time()}
@@ -47,7 +55,13 @@ class QueryCache:
 
 # Optional Redis-backed cache
 class RedisQueryCache(QueryCache):
-    def __init__(self, redis_client, ttl_seconds: int = 600, max_items: int = 500, namespace: str = "ctx:qcache"):
+    def __init__(
+        self,
+        redis_client,
+        ttl_seconds: int = 600,
+        max_items: int = 500,
+        namespace: str = "ctx:qcache",
+    ):
         super().__init__(ttl_seconds=ttl_seconds, max_items=max_items)
         self.r = redis_client
         self.ns = namespace
@@ -56,8 +70,11 @@ class RedisQueryCache(QueryCache):
     def _rk(self, k: str) -> str:
         return f"{self.ns}:item:{k}"
 
-    def get(self, query: str, filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    def get(
+        self, query: str, filters: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
         import json
+
         k = self._key(query, filters)
         data = self.r.get(self._rk(k))
         if not data:
@@ -67,8 +84,14 @@ class RedisQueryCache(QueryCache):
         except Exception:
             return None
 
-    def set(self, query: str, value: Dict[str, Any], filters: Optional[Dict[str, Any]] = None):
+    def set(
+        self,
+        query: str,
+        value: Dict[str, Any],
+        filters: Optional[Dict[str, Any]] = None,
+    ):
         import json
+
         k = self._key(query, filters)
         rk = self._rk(k)
         pipe = self.r.pipeline()
@@ -87,22 +110,36 @@ def get_query_cache() -> QueryCache:
         # Feature flag and optional dependency
         try:
             from src.config.settings import settings
-            use_redis = bool(getattr(settings, "query_cache_redis_enabled", False)) and bool(getattr(settings, "redis_url", None))
+
+            use_redis = bool(
+                getattr(settings, "query_cache_redis_enabled", False)
+            ) and bool(getattr(settings, "redis_url", None))
         except Exception:
             use_redis = False
         if use_redis:
             try:
                 import redis  # type: ignore
+
                 client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
-                _query_cache = RedisQueryCache(client, ttl_seconds=settings.cache_ttl_seconds, max_items=settings.cache_max_items)
+                _query_cache = RedisQueryCache(
+                    client,
+                    ttl_seconds=settings.cache_ttl_seconds,
+                    max_items=settings.cache_max_items,
+                )
                 return _query_cache
             except Exception:
                 # Fallback to in-memory
-                _query_cache = QueryCache(ttl_seconds=getattr(settings, "cache_ttl_seconds", 600), max_items=getattr(settings, "cache_max_items", 500))
+                _query_cache = QueryCache(
+                    ttl_seconds=getattr(settings, "cache_ttl_seconds", 600),
+                    max_items=getattr(settings, "cache_max_items", 500),
+                )
                 return _query_cache
         else:
             # In-memory default
             from src.config.settings import settings
-            _query_cache = QueryCache(ttl_seconds=getattr(settings, "cache_ttl_seconds", 600), max_items=getattr(settings, "cache_max_items", 500))
-    return _query_cache
 
+            _query_cache = QueryCache(
+                ttl_seconds=getattr(settings, "cache_ttl_seconds", 600),
+                max_items=getattr(settings, "cache_max_items", 500),
+            )
+    return _query_cache

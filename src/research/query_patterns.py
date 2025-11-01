@@ -6,13 +6,12 @@ across multiple programming languages.
 """
 
 import logging
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Any
 from pathlib import Path
 from dataclasses import dataclass
 
 from src.parsing.parser import get_parser
 from src.parsing.ts_loader import load_language
-from src.parsing.models import Language, ParseResult
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QueryMatch:
     """Represents a match from a Tree-sitter query."""
+
     pattern_name: str
     language: str
     file_path: str
@@ -33,6 +33,7 @@ class QueryMatch:
 @dataclass
 class QueryPattern:
     """Represents a Tree-sitter query pattern."""
+
     name: str
     description: str
     language: str
@@ -61,6 +62,7 @@ class TreeSitterQueryEngine:
         """Initialize the query engine."""
         from collections import OrderedDict
         import hashlib
+
         self._hashlib = hashlib
         self._OrderedDict = OrderedDict
 
@@ -75,17 +77,19 @@ class TreeSitterQueryEngine:
     def _initialize_patterns(self) -> Dict[str, List[QueryPattern]]:
         """Initialize query patterns for all languages."""
         patterns = {
-            'python': self._get_python_patterns(),
-            'javascript': self._get_javascript_patterns(),
-            'typescript': self._get_typescript_patterns(),
-            'java': self._get_java_patterns(),
-            'cpp': self._get_cpp_patterns(),
-            'go': self._get_go_patterns(),
-            'rust': self._get_rust_patterns(),
+            "python": self._get_python_patterns(),
+            "javascript": self._get_javascript_patterns(),
+            "typescript": self._get_typescript_patterns(),
+            "java": self._get_java_patterns(),
+            "cpp": self._get_cpp_patterns(),
+            "go": self._get_go_patterns(),
+            "rust": self._get_rust_patterns(),
         }
 
         total_patterns = sum(len(lang_patterns) for lang_patterns in patterns.values())
-        logger.info(f"Initialized {total_patterns} query patterns across {len(patterns)} languages")
+        logger.info(
+            f"Initialized {total_patterns} query patterns across {len(patterns)} languages"
+        )
 
         return patterns
 
@@ -108,7 +112,7 @@ class TreeSitterQueryEngine:
                   )
                 ) @async_like_function
                 """,
-                expected_captures=["function_name", "try_block", "async_like_function"]
+                expected_captures=["function_name", "try_block", "async_like_function"],
             ),
             QueryPattern(
                 name="factory_methods",
@@ -131,7 +135,12 @@ class TreeSitterQueryEngine:
                   )
                 ) @factory_class
                 """,
-                expected_captures=["class_name", "method_name", "constructor_call", "factory_method"]
+                expected_captures=[
+                    "class_name",
+                    "method_name",
+                    "constructor_call",
+                    "factory_method",
+                ],
             ),
             QueryPattern(
                 name="repository_crud",
@@ -157,7 +166,12 @@ class TreeSitterQueryEngine:
                   )
                 ) @repository_class
                 """,
-                expected_captures=["class_name", "method_name", "db_object", "db_operation"]
+                expected_captures=[
+                    "class_name",
+                    "method_name",
+                    "db_object",
+                    "db_operation",
+                ],
             ),
             QueryPattern(
                 name="decorator_patterns",
@@ -173,8 +187,12 @@ class TreeSitterQueryEngine:
                   ) @decorated_function
                 ) @decorated_def
                 """,
-                expected_captures=["decorator_name", "function_name", "decorated_function"]
-            )
+                expected_captures=[
+                    "decorator_name",
+                    "function_name",
+                    "decorated_function",
+                ],
+            ),
         ]
 
     def _get_javascript_patterns(self) -> List[QueryPattern]:
@@ -196,7 +214,7 @@ class TreeSitterQueryEngine:
                   )
                 ) @async_like_function
                 """,
-                expected_captures=["function_name", "try_block", "await"]
+                expected_captures=["function_name", "try_block", "await"],
             ),
             QueryPattern(
                 name="factory_classes",
@@ -219,7 +237,7 @@ class TreeSitterQueryEngine:
                   )
                 ) @factory_class
                 """,
-                expected_captures=["class_name", "method_name", "constructor_name"]
+                expected_captures=["class_name", "method_name", "constructor_name"],
             ),
             QueryPattern(
                 name="promise_chains",
@@ -236,8 +254,8 @@ class TreeSitterQueryEngine:
                   )
                 ) @promise_chain
                 """,
-                expected_captures=["promise_call", "chain_method", "callback"]
-            )
+                expected_captures=["promise_call", "chain_method", "callback"],
+            ),
         ]
 
     def _get_typescript_patterns(self) -> List[QueryPattern]:
@@ -257,7 +275,11 @@ class TreeSitterQueryEngine:
                   ) @implements_clause
                 ) @implementing_class
                 """,
-                expected_captures=["class_name", "interface_name", "implementing_class"]
+                expected_captures=[
+                    "class_name",
+                    "interface_name",
+                    "implementing_class",
+                ],
             ),
             QueryPattern(
                 name="generic_functions",
@@ -273,8 +295,8 @@ class TreeSitterQueryEngine:
                   ) @type_params
                 ) @generic_function
                 """,
-                expected_captures=["function_name", "type_param", "generic_function"]
-            )
+                expected_captures=["function_name", "type_param", "generic_function"],
+            ),
         ]
 
     def _get_java_patterns(self) -> List[QueryPattern]:
@@ -295,7 +317,7 @@ class TreeSitterQueryEngine:
                 ) @singleton_class
                 (#match? @method_name "^(getInstance|get_instance)$")
                 """,
-                expected_captures=["class_name", "method_name"]
+                expected_captures=["class_name", "method_name"],
             ),
             QueryPattern(
                 name="repository_pattern",
@@ -319,8 +341,13 @@ class TreeSitterQueryEngine:
                   )
                 ) @repository_class
                 """,
-                expected_captures=["class_name", "method_name", "dao_object", "crud_operation"]
-            )
+                expected_captures=[
+                    "class_name",
+                    "method_name",
+                    "dao_object",
+                    "crud_operation",
+                ],
+            ),
         ]
 
     def _get_cpp_patterns(self) -> List[QueryPattern]:
@@ -347,7 +374,7 @@ class TreeSitterQueryEngine:
                   )
                 ) @raii_class
                 """,
-                expected_captures=["class_name", "constructor_name", "destructor_name"]
+                expected_captures=["class_name", "constructor_name", "destructor_name"],
             )
         ]
 
@@ -370,7 +397,11 @@ class TreeSitterQueryEngine:
                   )
                 ) @interface_declaration
                 """,
-                expected_captures=["interface_name", "method_name", "interface_declaration"]
+                expected_captures=[
+                    "interface_name",
+                    "method_name",
+                    "interface_declaration",
+                ],
             ),
             QueryPattern(
                 name="error_handling",
@@ -379,8 +410,8 @@ class TreeSitterQueryEngine:
                 query_string="""
                 (if_statement) @error_handling
                 """,
-                expected_captures=["error_handling"]
-            )
+                expected_captures=["error_handling"],
+            ),
         ]
 
     def _get_rust_patterns(self) -> List[QueryPattern]:
@@ -402,7 +433,7 @@ class TreeSitterQueryEngine:
                   ) @return_type
                 ) @result_function
                 """,
-                expected_captures=["function_name", "result_type"]
+                expected_captures=["function_name", "result_type"],
             ),
             QueryPattern(
                 name="trait_implementations",
@@ -419,22 +450,26 @@ class TreeSitterQueryEngine:
                   )
                 ) @trait_impl
                 """,
-                expected_captures=["trait_name", "impl_type", "method_name"]
-            )
+                expected_captures=["trait_name", "impl_type", "method_name"],
+            ),
         ]
 
-    def execute_query(self, pattern: QueryPattern, code: str, file_path: str = "query_test") -> List[QueryMatch]:
+    def execute_query(
+        self, pattern: QueryPattern, code: str, file_path: str = "query_test"
+    ) -> List[QueryMatch]:
         """Execute a Tree-sitter query pattern on code."""
         try:
             # Parse the code
-            result = self.parser.parse(Path(f"{file_path}.{self._get_extension(pattern.language)}"), code)
+            result = self.parser.parse(
+                Path(f"{file_path}.{self._get_extension(pattern.language)}"), code
+            )
 
             if not result.parse_success or not result.ast_root:
                 logger.warning(f"Failed to parse code for query: {pattern.name}")
                 return []
 
             # Check result cache
-            code_hash = self._hashlib.sha256(code.encode('utf-8')).hexdigest()
+            code_hash = self._hashlib.sha256(code.encode("utf-8")).hexdigest()
             cache_key = (pattern.language, pattern.name, code_hash)
             if cache_key in self._result_cache:
                 # Move to end (LRU) and return cached
@@ -454,10 +489,11 @@ class TreeSitterQueryEngine:
                 # Convert our AST back to tree-sitter format for querying
                 ts_parser = self._get_ts_parser(pattern.language)
                 if ts_parser:
-                    tree = ts_parser.parse(code.encode('utf-8'))
+                    tree = ts_parser.parse(code.encode("utf-8"))
                     # tree-sitter >=0.25 uses QueryCursor for execution
                     try:
                         from tree_sitter import QueryCursor
+
                         cursor = QueryCursor(query)
                         results = cursor.matches(tree.root_node)
                         for _, cap_map in results:
@@ -469,9 +505,15 @@ class TreeSitterQueryEngine:
                                         file_path=file_path,
                                         start_line=node.start_point[0] + 1,
                                         end_line=node.end_point[0] + 1,
-                                        matched_text=code[node.start_byte:node.end_byte],
-                                        captures={cap_name: code[node.start_byte:node.end_byte]},
-                                        confidence=1.0
+                                        matched_text=code[
+                                            node.start_byte : node.end_byte
+                                        ],
+                                        captures={
+                                            cap_name: code[
+                                                node.start_byte : node.end_byte
+                                            ]
+                                        },
+                                        confidence=1.0,
                                     )
                                     matches.append(match)
                     except Exception:
@@ -484,9 +526,11 @@ class TreeSitterQueryEngine:
                                 file_path=file_path,
                                 start_line=node.start_point[0] + 1,
                                 end_line=node.end_point[0] + 1,
-                                matched_text=code[node.start_byte:node.end_byte],
-                                captures={capture_name: code[node.start_byte:node.end_byte]},
-                                confidence=1.0
+                                matched_text=code[node.start_byte : node.end_byte],
+                                captures={
+                                    capture_name: code[node.start_byte : node.end_byte]
+                                },
+                                confidence=1.0,
                             )
                             matches.append(match)
             except Exception as e:
@@ -507,7 +551,6 @@ class TreeSitterQueryEngine:
             logger.error(f"Failed to execute query {pattern.name}: {e}", exc_info=True)
             return []
 
-
     def _get_or_compile_query(self, language_obj, pattern: QueryPattern):
         """Get or compile a query and cache it."""
         key = (pattern.language, pattern.name)
@@ -517,20 +560,23 @@ class TreeSitterQueryEngine:
             # Prefer new Query(language, source) API
             try:
                 from tree_sitter import Query as TS_Query
+
                 q = TS_Query(language_obj, pattern.query_string)
             except Exception:
                 q = language_obj.query(pattern.query_string)
             self._compiled_queries[key] = q
             return q
         except Exception as e:
-            logger.error(f"Failed to compile query {pattern.name} for {pattern.language}: {e}")
+            logger.error(
+                f"Failed to compile query {pattern.name} for {pattern.language}: {e}"
+            )
             return None
-
 
     def _get_ts_parser(self, language: str):
         """Get tree-sitter parser for language."""
         try:
             import tree_sitter
+
             lang = load_language(language)
             parser = tree_sitter.Parser()
             try:
@@ -545,10 +591,15 @@ class TreeSitterQueryEngine:
     def _get_extension(self, language: str) -> str:
         """Get file extension for language."""
         ext_map = {
-            'python': 'py', 'javascript': 'js', 'typescript': 'ts',
-            'java': 'java', 'cpp': 'cpp', 'go': 'go', 'rust': 'rs'
+            "python": "py",
+            "javascript": "js",
+            "typescript": "ts",
+            "java": "java",
+            "cpp": "cpp",
+            "go": "go",
+            "rust": "rs",
         }
-        return ext_map.get(language, 'txt')
+        return ext_map.get(language, "txt")
 
     def get_patterns_for_language(self, language: str) -> List[QueryPattern]:
         """Get all patterns for a specific language."""
@@ -558,7 +609,9 @@ class TreeSitterQueryEngine:
         """Get all query patterns."""
         return self.query_patterns.copy()
 
-    def demonstrate_patterns(self, language: str, code_samples: Dict[str, str]) -> Dict[str, List[QueryMatch]]:
+    def demonstrate_patterns(
+        self, language: str, code_samples: Dict[str, str]
+    ) -> Dict[str, List[QueryMatch]]:
         """Demonstrate query patterns on code samples."""
         results = {}
         patterns = self.get_patterns_for_language(language)

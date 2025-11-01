@@ -9,12 +9,13 @@ Design goals:
 - Works directly with parsing models (unit-test friendly)
 - Can later plug into cross_language analyzer and AST store
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, List, Set, Tuple, Optional
 
-from src.parsing.models import ParseResult, SymbolInfo, ClassInfo, ImportInfo
+from src.parsing.models import ParseResult, ImportInfo
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,9 @@ class DependencyAnalyzer:
     def __init__(self, parse_results: List[ParseResult]):
         self.parse_results = parse_results
         # index by file for quick lookup
-        self._by_file: Dict[str, ParseResult] = {str(p.file_path): p for p in parse_results}
+        self._by_file: Dict[str, ParseResult] = {
+            str(p.file_path): p for p in parse_results
+        }
         # build edges lazily
         self._edges: Optional[List[DependencyEdge]] = None
 
@@ -53,11 +56,23 @@ class DependencyAnalyzer:
                     # naive mapping: base class name to file containing class of same name
                     target = self._find_file_defining_class(base)
                     if target and target != str(p.file_path):
-                        edges.append(DependencyEdge(str(p.file_path), target, "inheritance", cls.name, base))
-                for iface in getattr(cls, 'interfaces', []) or []:
+                        edges.append(
+                            DependencyEdge(
+                                str(p.file_path), target, "inheritance", cls.name, base
+                            )
+                        )
+                for iface in getattr(cls, "interfaces", []) or []:
                     target = self._find_file_defining_class(iface)
                     if target and target != str(p.file_path):
-                        edges.append(DependencyEdge(str(p.file_path), target, "implementation", cls.name, iface))
+                        edges.append(
+                            DependencyEdge(
+                                str(p.file_path),
+                                target,
+                                "implementation",
+                                cls.name,
+                                iface,
+                            )
+                        )
             # function calls: skipped for now (SymbolInfo has no call map in current model)
             # This can be enabled when call graph data is available in ParseResult/SymbolInfo
         self._edges = edges
@@ -132,7 +147,11 @@ class DependencyAnalyzer:
             return candidate
         # search by basename
         for path in self._by_file.keys():
-            if path.endswith(f"/{mod}.py") or path.endswith(f"\\{mod}.py") or path.endswith(f"{mod}.py"):
+            if (
+                path.endswith(f"/{mod}.py")
+                or path.endswith(f"\\{mod}.py")
+                or path.endswith(f"{mod}.py")
+            ):
                 return path
         return None
 
@@ -149,4 +168,3 @@ class DependencyAnalyzer:
                 if s.name == symbol_name:
                     return str(p.file_path)
         return None
-

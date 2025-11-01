@@ -12,7 +12,7 @@ from typing import Dict, Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
 from fastmcp import FastMCP
-from src.security.authz import set_role, get_role, Roles
+from src.security.authz import set_role, get_role
 from src.security.audit import record_event, read_events
 
 
@@ -44,4 +44,3 @@ def register_security_tools(mcp: FastMCP):
             "count": len(events),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-

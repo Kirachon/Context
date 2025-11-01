@@ -46,4 +46,3 @@ def register_analytics_tools(mcp: FastMCP):
             "success": True,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-

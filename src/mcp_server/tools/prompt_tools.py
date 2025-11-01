@@ -41,8 +41,7 @@ def register_prompt_tools(mcp: FastMCP):
     @mcp.tool()
     @instrument_tool("prompt_enhance")
     async def prompt_enhance(
-        prompt: str,
-        include_git_summary: bool = True
+        prompt: str, include_git_summary: bool = True
     ) -> Dict[str, Any]:
         """Enhance prompt with context signals"""
         enhancer = get_context_enhancer()
@@ -60,8 +59,7 @@ def register_prompt_tools(mcp: FastMCP):
     @mcp.tool()
     @instrument_tool("prompt_generate")
     async def prompt_generate(
-        prompt: str,
-        model: Optional[str] = None
+        prompt: str, model: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate response using Ollama"""
         manager = get_model_manager()
@@ -86,4 +84,3 @@ def register_prompt_tools(mcp: FastMCP):
             "default_model": manager.get_default_model(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-

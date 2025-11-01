@@ -15,6 +15,7 @@ import json
 @dataclass
 class QueryRecord:
     """Record of a query and its results"""
+
     query: str
     intent: str
     timestamp: datetime
@@ -31,7 +32,7 @@ class QueryRecord:
             "results_count": self.results_count,
             "result_quality": self.result_quality,
             "tags": self.tags,
-            "notes": self.notes
+            "notes": self.notes,
         }
 
 
@@ -41,7 +42,7 @@ class QueryHistory:
     def __init__(self, max_history: int = 1000):
         """
         Initialize query history
-        
+
         Args:
             max_history: Maximum number of queries to keep in memory
         """
@@ -54,17 +55,17 @@ class QueryHistory:
         query: str,
         intent: str,
         results_count: int,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> QueryRecord:
         """
         Add query to history
-        
+
         Args:
             query: Query string
             intent: Detected intent
             results_count: Number of results returned
             tags: Optional tags for categorization
-            
+
         Returns:
             QueryRecord
         """
@@ -73,20 +74,20 @@ class QueryHistory:
             intent=intent,
             timestamp=datetime.now(),
             results_count=results_count,
-            tags=tags or []
+            tags=tags or [],
         )
         self.history.insert(0, record)
-        
+
         # Trim history if needed
         if len(self.history) > self.max_history:
-            self.history = self.history[:self.max_history]
-        
+            self.history = self.history[: self.max_history]
+
         return record
 
     def rate_query(self, query_index: int, quality: float, notes: str = ""):
         """
         Rate query result quality
-        
+
         Args:
             query_index: Index in history (0 = most recent)
             quality: Quality rating (0.0-1.0)
@@ -132,7 +133,7 @@ class QueryHistory:
         self.history_file = file_path
         if not file_path.exists():
             return
-        
+
         data = json.loads(file_path.read_text())
         self.history.clear()
         for item in data:
@@ -143,7 +144,7 @@ class QueryHistory:
                 results_count=item["results_count"],
                 result_quality=item.get("result_quality", 0.0),
                 tags=item.get("tags", []),
-                notes=item.get("notes", "")
+                notes=item.get("notes", ""),
             )
             self.history.append(record)
 
@@ -151,19 +152,18 @@ class QueryHistory:
         """Get history statistics"""
         if not self.history:
             return {}
-        
+
         intents = {}
         for record in self.history:
             intents[record.intent] = intents.get(record.intent, 0) + 1
-        
+
         avg_quality = sum(r.result_quality for r in self.history) / len(self.history)
         avg_results = sum(r.results_count for r in self.history) / len(self.history)
-        
+
         return {
             "total_queries": len(self.history),
             "intent_distribution": intents,
             "average_quality": avg_quality,
             "average_results": avg_results,
-            "high_quality_count": len(self.get_high_quality())
+            "high_quality_count": len(self.get_high_quality()),
         }
-

@@ -6,16 +6,16 @@ Specialized vector storage for AST metadata including symbols, classes, and impo
 
 import logging
 import hashlib
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from qdrant_client.http import models
 from src.vector_db.qdrant_client import get_qdrant_client
 from src.vector_db.embeddings import EmbeddingService
 from src.search.ast_models import (
-    SymbolEmbeddingPayload, ClassEmbeddingPayload, ImportEmbeddingPayload,
-    ASTSearchRequest, ASTSearchResult, SymbolType, SearchScope
+    SymbolEmbeddingPayload,
+    ClassEmbeddingPayload,
+    ImportEmbeddingPayload,
 )
 from src.parsing.models import ParseResult, SymbolInfo, ClassInfo, ImportInfo
 
@@ -25,52 +25,54 @@ logger = logging.getLogger(__name__)
 class ASTVectorStore:
     """
     AST Vector Store
-    
+
     Manages vector storage and retrieval for AST metadata with specialized
     collections for symbols, classes, and imports.
     """
-    
+
     def __init__(self, base_collection_name: str = "context"):
         """Initialize AST vector store."""
         self.base_collection_name = base_collection_name
         self.symbol_collection = f"{base_collection_name}_symbols"
         self.class_collection = f"{base_collection_name}_classes"
         self.import_collection = f"{base_collection_name}_imports"
-        
+
         self.embedding_service = EmbeddingService()
-        
+
         self.stats = {
             "symbols_stored": 0,
             "classes_stored": 0,
             "imports_stored": 0,
             "searches_performed": 0,
-            "errors": 0
+            "errors": 0,
         }
-        
-        logger.info(f"ASTVectorStore initialized with collections: {self.symbol_collection}, {self.class_collection}, {self.import_collection}")
-    
+
+        logger.info(
+            f"ASTVectorStore initialized with collections: {self.symbol_collection}, {self.class_collection}, {self.import_collection}"
+        )
+
     async def ensure_collections(self) -> bool:
         """Ensure all AST collections exist."""
         client = get_qdrant_client()
         if not client:
             logger.error("Qdrant client not available")
             return False
-        
+
         try:
             # Get embedding dimension
             await self.embedding_service.initialize()
             vector_size = self.embedding_service.embedding_dim
-            
+
             collections_to_create = [
                 self.symbol_collection,
                 self.class_collection,
-                self.import_collection
+                self.import_collection,
             ]
-            
+
             # Get existing collections
             existing_collections = client.get_collections()
             existing_names = [col.name for col in existing_collections.collections]
-            
+
             # Create missing collections
             for collection_name in collections_to_create:
                 if collection_name not in existing_names:
@@ -78,89 +80,101 @@ class ASTVectorStore:
                     client.create_collection(
                         collection_name=collection_name,
                         vectors_config=models.VectorParams(
-                            size=vector_size,
-                            distance=models.Distance.COSINE
-                        )
+                            size=vector_size, distance=models.Distance.COSINE
+                        ),
                     )
                     logger.info(f"Created collection: {collection_name}")
                 else:
                     logger.debug(f"Collection already exists: {collection_name}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error ensuring AST collections: {e}", exc_info=True)
             self.stats["errors"] += 1
             return False
-    
+
     async def store_parse_result(self, parse_result: ParseResult) -> bool:
         """
         Store complete parse result in vector database.
-        
+
         Args:
             parse_result: ParseResult from AST parsing
-            
+
         Returns:
             bool: True if successful
         """
         if not parse_result.parse_success:
-            logger.warning(f"Skipping storage for failed parse: {parse_result.file_path}")
+            logger.warning(
+                f"Skipping storage for failed parse: {parse_result.file_path}"
+            )
             return False
-        
+
         try:
             # Ensure collections exist
             if not await self.ensure_collections():
                 return False
-            
+
             # Calculate file hash for cache invalidation
             file_hash = self._calculate_file_hash(parse_result.file_path)
-            
+
             # Store symbols
             symbols_success = await self._store_symbols(parse_result, file_hash)
-            
+
             # Store classes
             classes_success = await self._store_classes(parse_result, file_hash)
-            
+
             # Store imports
             imports_success = await self._store_imports(parse_result, file_hash)
-            
+
             success = symbols_success and classes_success and imports_success
-            
+
             if success:
-                logger.info(f"Successfully stored AST data for {parse_result.file_path}")
-                logger.debug(f"Stored: {len(parse_result.symbols)} symbols, {len(parse_result.classes)} classes, {len(parse_result.imports)} imports")
+                logger.info(
+                    f"Successfully stored AST data for {parse_result.file_path}"
+                )
+                logger.debug(
+                    f"Stored: {len(parse_result.symbols)} symbols, {len(parse_result.classes)} classes, {len(parse_result.imports)} imports"
+                )
             else:
-                logger.warning(f"Partial failure storing AST data for {parse_result.file_path}")
-            
+                logger.warning(
+                    f"Partial failure storing AST data for {parse_result.file_path}"
+                )
+
             return success
-            
+
         except Exception as e:
-            logger.error(f"Error storing parse result for {parse_result.file_path}: {e}", exc_info=True)
+            logger.error(
+                f"Error storing parse result for {parse_result.file_path}: {e}",
+                exc_info=True,
+            )
             self.stats["errors"] += 1
             return False
-    
+
     async def _store_symbols(self, parse_result: ParseResult, file_hash: str) -> bool:
         """Store symbols in vector database."""
         if not parse_result.symbols:
             return True
-        
+
         client = get_qdrant_client()
         if not client:
             return False
-        
+
         try:
             points = []
-            
+
             for symbol in parse_result.symbols:
                 # Generate search text for embedding
                 search_text = self._generate_symbol_search_text(symbol, parse_result)
-                
+
                 # Generate embedding
                 embedding = await self.embedding_service.generate_embedding(search_text)
                 if not embedding:
-                    logger.warning(f"Failed to generate embedding for symbol: {symbol.name}")
+                    logger.warning(
+                        f"Failed to generate embedding for symbol: {symbol.name}"
+                    )
                     continue
-                
+
                 # Create payload
                 payload = SymbolEmbeddingPayload(
                     file_path=str(parse_result.file_path),
@@ -180,56 +194,55 @@ class ASTVectorStore:
                     is_abstract=symbol.is_abstract,
                     is_async=symbol.is_async,
                     file_hash=file_hash,
-                    search_text=search_text
+                    search_text=search_text,
                 )
-                
+
                 # Create point
                 point_id = self._generate_symbol_id(parse_result.file_path, symbol)
                 point = models.PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload=payload.to_dict()
+                    id=point_id, vector=embedding, payload=payload.to_dict()
                 )
                 points.append(point)
-            
+
             # Batch upsert
             if points:
-                client.upsert(
-                    collection_name=self.symbol_collection,
-                    points=points
-                )
+                client.upsert(collection_name=self.symbol_collection, points=points)
                 self.stats["symbols_stored"] += len(points)
-                logger.debug(f"Stored {len(points)} symbols for {parse_result.file_path}")
-            
+                logger.debug(
+                    f"Stored {len(points)} symbols for {parse_result.file_path}"
+                )
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error storing symbols: {e}", exc_info=True)
             self.stats["errors"] += 1
             return False
-    
+
     async def _store_classes(self, parse_result: ParseResult, file_hash: str) -> bool:
         """Store classes in vector database."""
         if not parse_result.classes:
             return True
-        
+
         client = get_qdrant_client()
         if not client:
             return False
-        
+
         try:
             points = []
-            
+
             for class_info in parse_result.classes:
                 # Generate search text for embedding
                 search_text = self._generate_class_search_text(class_info, parse_result)
-                
+
                 # Generate embedding
                 embedding = await self.embedding_service.generate_embedding(search_text)
                 if not embedding:
-                    logger.warning(f"Failed to generate embedding for class: {class_info.name}")
+                    logger.warning(
+                        f"Failed to generate embedding for class: {class_info.name}"
+                    )
                     continue
-                
+
                 # Create payload
                 payload = ClassEmbeddingPayload(
                     file_path=str(parse_result.file_path),
@@ -249,29 +262,26 @@ class ASTVectorStore:
                     is_interface=class_info.is_interface,
                     is_static=class_info.is_static,
                     file_hash=file_hash,
-                    search_text=search_text
+                    search_text=search_text,
                 )
-                
+
                 # Create point
                 point_id = self._generate_class_id(parse_result.file_path, class_info)
                 point = models.PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload=payload.to_dict()
+                    id=point_id, vector=embedding, payload=payload.to_dict()
                 )
                 points.append(point)
-            
+
             # Batch upsert
             if points:
-                client.upsert(
-                    collection_name=self.class_collection,
-                    points=points
-                )
+                client.upsert(collection_name=self.class_collection, points=points)
                 self.stats["classes_stored"] += len(points)
-                logger.debug(f"Stored {len(points)} classes for {parse_result.file_path}")
-            
+                logger.debug(
+                    f"Stored {len(points)} classes for {parse_result.file_path}"
+                )
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error storing classes: {e}", exc_info=True)
             self.stats["errors"] += 1
@@ -291,12 +301,16 @@ class ASTVectorStore:
 
             for import_info in parse_result.imports:
                 # Generate search text for embedding
-                search_text = self._generate_import_search_text(import_info, parse_result)
+                search_text = self._generate_import_search_text(
+                    import_info, parse_result
+                )
 
                 # Generate embedding
                 embedding = await self.embedding_service.generate_embedding(search_text)
                 if not embedding:
-                    logger.warning(f"Failed to generate embedding for import: {import_info.module}")
+                    logger.warning(
+                        f"Failed to generate embedding for import: {import_info.module}"
+                    )
                     continue
 
                 # Create payload
@@ -310,26 +324,23 @@ class ASTVectorStore:
                     is_wildcard=import_info.is_wildcard,
                     line=import_info.line,
                     file_hash=file_hash,
-                    search_text=search_text
+                    search_text=search_text,
                 )
 
                 # Create point
                 point_id = self._generate_import_id(parse_result.file_path, import_info)
                 point = models.PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload=payload.to_dict()
+                    id=point_id, vector=embedding, payload=payload.to_dict()
                 )
                 points.append(point)
 
             # Batch upsert
             if points:
-                client.upsert(
-                    collection_name=self.import_collection,
-                    points=points
-                )
+                client.upsert(collection_name=self.import_collection, points=points)
                 self.stats["imports_stored"] += len(points)
-                logger.debug(f"Stored {len(points)} imports for {parse_result.file_path}")
+                logger.debug(
+                    f"Stored {len(points)} imports for {parse_result.file_path}"
+                )
 
             return True
 
@@ -338,7 +349,9 @@ class ASTVectorStore:
             self.stats["errors"] += 1
             return False
 
-    def _generate_symbol_search_text(self, symbol: SymbolInfo, parse_result: ParseResult) -> str:
+    def _generate_symbol_search_text(
+        self, symbol: SymbolInfo, parse_result: ParseResult
+    ) -> str:
         """Generate optimized search text for symbol embedding."""
         parts = []
 
@@ -387,7 +400,9 @@ class ASTVectorStore:
 
         return " | ".join(parts)
 
-    def _generate_class_search_text(self, class_info: ClassInfo, parse_result: ParseResult) -> str:
+    def _generate_class_search_text(
+        self, class_info: ClassInfo, parse_result: ParseResult
+    ) -> str:
         """Generate optimized search text for class embedding."""
         parts = []
 
@@ -436,7 +451,9 @@ class ASTVectorStore:
 
         return " | ".join(parts)
 
-    def _generate_import_search_text(self, import_info: ImportInfo, parse_result: ParseResult) -> str:
+    def _generate_import_search_text(
+        self, import_info: ImportInfo, parse_result: ParseResult
+    ) -> str:
         """Generate optimized search text for import embedding."""
         parts = []
 
@@ -495,7 +512,7 @@ class ASTVectorStore:
             "classes_stored": self.stats["classes_stored"],
             "imports_stored": self.stats["imports_stored"],
             "searches_performed": self.stats["searches_performed"],
-            "errors": self.stats["errors"]
+            "errors": self.stats["errors"],
         }
 
 

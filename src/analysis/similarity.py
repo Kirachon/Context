@@ -7,10 +7,9 @@ Detects similar code patterns and structures across different programming langua
 import logging
 from typing import List, Dict, Tuple, Optional, Set, Any
 from dataclasses import dataclass
-from pathlib import Path
 import hashlib
 
-from src.parsing.models import ParseResult, SymbolInfo, ClassInfo, Language
+from src.parsing.models import ParseResult, SymbolInfo, Language
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SimilarityMatch:
     """Represents a similarity match between code elements."""
+
     source_file: str
     source_symbol: str
     source_language: str
@@ -27,7 +27,7 @@ class SimilarityMatch:
     similarity_score: float
     similarity_type: str  # structural, semantic, functional
     evidence: Dict[str, Any]
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "source_file": self.source_file,
@@ -38,13 +38,14 @@ class SimilarityMatch:
             "target_language": self.target_language,
             "similarity_score": self.similarity_score,
             "similarity_type": self.similarity_type,
-            "evidence": self.evidence
+            "evidence": self.evidence,
         }
 
 
 @dataclass
 class CodeSignature:
     """Represents a normalized signature of a code element."""
+
     name: str
     type: str
     parameter_count: int
@@ -52,7 +53,7 @@ class CodeSignature:
     return_type: Optional[str]
     modifiers: Set[str]
     complexity_score: float
-    
+
     def to_hash(self) -> str:
         """Generate hash for similarity comparison."""
         content = f"{self.type}:{self.parameter_count}:{':'.join(sorted(self.parameter_types))}:{self.return_type}:{':'.join(sorted(self.modifiers))}"
@@ -62,11 +63,11 @@ class CodeSignature:
 class SimilarityDetector:
     """
     Code Similarity Detector
-    
+
     Detects similar code patterns across different programming languages
     using structural, semantic, and functional analysis.
     """
-    
+
     def __init__(self):
         """Initialize similarity detector."""
         self.language_normalizers = {
@@ -78,131 +79,150 @@ class SimilarityDetector:
             Language.GO: self._normalize_go_symbol,
             Language.RUST: self._normalize_rust_symbol,
         }
-        
+
         self.stats = {
             "comparisons_performed": 0,
             "similarities_found": 0,
-            "cross_language_matches": 0
+            "cross_language_matches": 0,
         }
-        
+
         logger.info("SimilarityDetector initialized")
-    
-    def find_similarities(self, parse_results: List[ParseResult], 
-                         min_similarity: float = 0.7) -> List[SimilarityMatch]:
+
+    def find_similarities(
+        self, parse_results: List[ParseResult], min_similarity: float = 0.7
+    ) -> List[SimilarityMatch]:
         """
         Find similar code patterns across parse results.
-        
+
         Args:
             parse_results: List of parse results to analyze
             min_similarity: Minimum similarity score to report
-            
+
         Returns:
             List of similarity matches
         """
         logger.info(f"Finding similarities across {len(parse_results)} files")
-        
+
         # Generate signatures for all symbols
         signatures = self._generate_signatures(parse_results)
-        
+
         # Find matches
         matches = self._find_matches(signatures, min_similarity)
-        
+
         # Update statistics
-        self.stats["comparisons_performed"] += len(signatures) * (len(signatures) - 1) // 2
+        self.stats["comparisons_performed"] += (
+            len(signatures) * (len(signatures) - 1) // 2
+        )
         self.stats["similarities_found"] = len(matches)
-        self.stats["cross_language_matches"] = len([
-            m for m in matches if m.source_language != m.target_language
-        ])
-        
+        self.stats["cross_language_matches"] = len(
+            [m for m in matches if m.source_language != m.target_language]
+        )
+
         logger.info(f"Found {len(matches)} similarity matches")
         return matches
-    
-    def _generate_signatures(self, parse_results: List[ParseResult]) -> List[Tuple[CodeSignature, ParseResult, SymbolInfo]]:
+
+    def _generate_signatures(
+        self, parse_results: List[ParseResult]
+    ) -> List[Tuple[CodeSignature, ParseResult, SymbolInfo]]:
         """Generate normalized signatures for all symbols."""
         signatures = []
-        
+
         for result in parse_results:
             normalizer = self.language_normalizers.get(result.language)
             if not normalizer:
                 logger.warning(f"No normalizer for language: {result.language}")
                 continue
-            
+
             for symbol in result.symbols:
                 try:
                     signature = normalizer(symbol)
                     signatures.append((signature, result, symbol))
                 except Exception as e:
                     logger.warning(f"Failed to normalize symbol {symbol.name}: {e}")
-        
+
         return signatures
-    
-    def _find_matches(self, signatures: List[Tuple[CodeSignature, ParseResult, SymbolInfo]], 
-                     min_similarity: float) -> List[SimilarityMatch]:
+
+    def _find_matches(
+        self,
+        signatures: List[Tuple[CodeSignature, ParseResult, SymbolInfo]],
+        min_similarity: float,
+    ) -> List[SimilarityMatch]:
         """Find similarity matches between signatures."""
         matches = []
-        
+
         for i, (sig1, result1, symbol1) in enumerate(signatures):
-            for j, (sig2, result2, symbol2) in enumerate(signatures[i+1:], i+1):
+            for j, (sig2, result2, symbol2) in enumerate(signatures[i + 1 :], i + 1):
                 # Skip self-comparisons
-                if result1.file_path == result2.file_path and symbol1.name == symbol2.name:
+                if (
+                    result1.file_path == result2.file_path
+                    and symbol1.name == symbol2.name
+                ):
                     continue
-                
+
                 # Calculate similarity
-                similarity_score, similarity_type, evidence = self._calculate_similarity(
-                    sig1, sig2, symbol1, symbol2
+                similarity_score, similarity_type, evidence = (
+                    self._calculate_similarity(sig1, sig2, symbol1, symbol2)
                 )
-                
+
                 if similarity_score >= min_similarity:
-                    matches.append(SimilarityMatch(
-                        source_file=str(result1.file_path),
-                        source_symbol=symbol1.name,
-                        source_language=result1.language.value,
-                        target_file=str(result2.file_path),
-                        target_symbol=symbol2.name,
-                        target_language=result2.language.value,
-                        similarity_score=similarity_score,
-                        similarity_type=similarity_type,
-                        evidence=evidence
-                    ))
-        
+                    matches.append(
+                        SimilarityMatch(
+                            source_file=str(result1.file_path),
+                            source_symbol=symbol1.name,
+                            source_language=result1.language.value,
+                            target_file=str(result2.file_path),
+                            target_symbol=symbol2.name,
+                            target_language=result2.language.value,
+                            similarity_score=similarity_score,
+                            similarity_type=similarity_type,
+                            evidence=evidence,
+                        )
+                    )
+
         return matches
-    
-    def _calculate_similarity(self, sig1: CodeSignature, sig2: CodeSignature,
-                            symbol1: SymbolInfo, symbol2: SymbolInfo) -> Tuple[float, str, Dict[str, Any]]:
+
+    def _calculate_similarity(
+        self,
+        sig1: CodeSignature,
+        sig2: CodeSignature,
+        symbol1: SymbolInfo,
+        symbol2: SymbolInfo,
+    ) -> Tuple[float, str, Dict[str, Any]]:
         """Calculate similarity between two code signatures."""
         evidence = {}
         similarity_components = []
-        
+
         # Structural similarity
         structural_score = self._calculate_structural_similarity(sig1, sig2, evidence)
         similarity_components.append(("structural", structural_score, 0.4))
-        
+
         # Semantic similarity
         semantic_score = self._calculate_semantic_similarity(symbol1, symbol2, evidence)
         similarity_components.append(("semantic", semantic_score, 0.4))
-        
+
         # Functional similarity
         functional_score = self._calculate_functional_similarity(sig1, sig2, evidence)
         similarity_components.append(("functional", functional_score, 0.2))
-        
+
         # Calculate weighted average
         total_score = sum(score * weight for _, score, weight in similarity_components)
-        
+
         # Determine primary similarity type
         primary_type = max(similarity_components, key=lambda x: x[1])[0]
-        
+
         return total_score, primary_type, evidence
-    
-    def _calculate_structural_similarity(self, sig1: CodeSignature, sig2: CodeSignature,
-                                       evidence: Dict[str, Any]) -> float:
+
+    def _calculate_structural_similarity(
+        self, sig1: CodeSignature, sig2: CodeSignature, evidence: Dict[str, Any]
+    ) -> float:
         """Calculate structural similarity between signatures."""
         score = 0.0
-        
+
         # Type similarity
         if sig1.type == sig2.type:
             score += 0.3
             evidence["same_type"] = True
-        
+
         # Parameter count similarity
         if sig1.parameter_count == sig2.parameter_count:
             score += 0.2
@@ -210,55 +230,67 @@ class SimilarityDetector:
         elif abs(sig1.parameter_count - sig2.parameter_count) <= 1:
             score += 0.1
             evidence["similar_parameter_count"] = True
-        
+
         # Parameter type similarity
         if sig1.parameter_types and sig2.parameter_types:
             common_types = set(sig1.parameter_types) & set(sig2.parameter_types)
-            type_similarity = len(common_types) / max(len(sig1.parameter_types), len(sig2.parameter_types))
+            type_similarity = len(common_types) / max(
+                len(sig1.parameter_types), len(sig2.parameter_types)
+            )
             score += type_similarity * 0.2
             evidence["parameter_type_similarity"] = type_similarity
-        
+
         # Return type similarity
         if sig1.return_type and sig2.return_type:
-            if self._normalize_type(sig1.return_type) == self._normalize_type(sig2.return_type):
+            if self._normalize_type(sig1.return_type) == self._normalize_type(
+                sig2.return_type
+            ):
                 score += 0.15
                 evidence["same_return_type"] = True
-        
+
         # Modifier similarity
         common_modifiers = sig1.modifiers & sig2.modifiers
         if common_modifiers:
-            modifier_similarity = len(common_modifiers) / max(len(sig1.modifiers), len(sig2.modifiers))
+            modifier_similarity = len(common_modifiers) / max(
+                len(sig1.modifiers), len(sig2.modifiers)
+            )
             score += modifier_similarity * 0.15
             evidence["modifier_similarity"] = modifier_similarity
-        
+
         return min(score, 1.0)
-    
-    def _calculate_semantic_similarity(self, symbol1: SymbolInfo, symbol2: SymbolInfo,
-                                     evidence: Dict[str, Any]) -> float:
+
+    def _calculate_semantic_similarity(
+        self, symbol1: SymbolInfo, symbol2: SymbolInfo, evidence: Dict[str, Any]
+    ) -> float:
         """Calculate semantic similarity between symbols."""
         score = 0.0
-        
+
         # Name similarity
         name_similarity = self._calculate_name_similarity(symbol1.name, symbol2.name)
         score += name_similarity * 0.4
         evidence["name_similarity"] = name_similarity
-        
+
         # Documentation similarity
         if symbol1.docstring and symbol2.docstring:
-            doc_similarity = self._calculate_text_similarity(symbol1.docstring, symbol2.docstring)
+            doc_similarity = self._calculate_text_similarity(
+                symbol1.docstring, symbol2.docstring
+            )
             score += doc_similarity * 0.3
             evidence["documentation_similarity"] = doc_similarity
-        
+
         # Context similarity (parent class, etc.)
         if symbol1.parent_class and symbol2.parent_class:
-            context_similarity = self._calculate_name_similarity(symbol1.parent_class, symbol2.parent_class)
+            context_similarity = self._calculate_name_similarity(
+                symbol1.parent_class, symbol2.parent_class
+            )
             score += context_similarity * 0.3
             evidence["context_similarity"] = context_similarity
-        
+
         return min(score, 1.0)
 
-    def _calculate_functional_similarity(self, sig1: CodeSignature, sig2: CodeSignature,
-                                       evidence: Dict[str, Any]) -> float:
+    def _calculate_functional_similarity(
+        self, sig1: CodeSignature, sig2: CodeSignature, evidence: Dict[str, Any]
+    ) -> float:
         """Calculate functional similarity between signatures."""
         score = 0.0
 
@@ -282,14 +314,15 @@ class SimilarityDetector:
             return 1.0
 
         # Normalize names (remove underscores, convert to lowercase)
-        norm1 = name1.lower().replace('_', '').replace('-', '')
-        norm2 = name2.lower().replace('_', '').replace('-', '')
+        norm1 = name1.lower().replace("_", "").replace("-", "")
+        norm2 = name2.lower().replace("_", "").replace("-", "")
 
         if norm1 == norm2:
             return 0.9
 
         # Token-level heuristic to penalize re-ordered words
         import re
+
         tokens1 = [t for t in re.split(r"[_-]+", name1.lower()) if t]
         tokens2 = [t for t in re.split(r"[_-]+", name2.lower()) if t]
         if tokens1 != tokens2 and sorted(tokens1) == sorted(tokens2):
@@ -313,12 +346,12 @@ class SimilarityDetector:
         # Token overlap (snake/camel)
         def split_tokens(s: str) -> List[str]:
             tokens = []
-            buf = ''
+            buf = ""
             for ch in s:
-                if ch in ['_', '-']:
+                if ch in ["_", "-"]:
                     if buf:
                         tokens.append(buf)
-                        buf = ''
+                        buf = ""
                 elif ch.isupper():
                     if buf:
                         tokens.append(buf)
@@ -328,6 +361,7 @@ class SimilarityDetector:
             if buf:
                 tokens.append(buf)
             return tokens
+
         toks1 = split_tokens(name1)
         toks2 = split_tokens(name2)
         if toks1 and toks2:
@@ -367,17 +401,29 @@ class SimilarityDetector:
         # Common type mappings (lowercased keys)
         type_mappings = {
             # String types
-            "string": "string", "str": "string",
+            "string": "string",
+            "str": "string",
             # Integer types
-            "int": "integer", "integer": "integer", "i32": "integer", "i64": "integer",
+            "int": "integer",
+            "integer": "integer",
+            "i32": "integer",
+            "i64": "integer",
             # Boolean types
-            "bool": "boolean", "boolean": "boolean",
+            "bool": "boolean",
+            "boolean": "boolean",
             # Float types
-            "float": "float", "double": "float", "f32": "float", "f64": "float",
+            "float": "float",
+            "double": "float",
+            "f32": "float",
+            "f64": "float",
             # Array/List types
-            "list": "array", "array": "array", "vec": "array",
+            "list": "array",
+            "array": "array",
+            "vec": "array",
             # Map/Dict types
-            "dict": "map", "map": "map", "hashmap": "map",
+            "dict": "map",
+            "map": "map",
+            "hashmap": "map",
         }
 
         original = type_str.strip()
@@ -410,9 +456,11 @@ class SimilarityDetector:
             type=symbol.type,
             parameter_count=len(symbol.parameters),
             parameter_types=parameter_types,
-            return_type=self._normalize_type(symbol.return_type) if symbol.return_type else None,
+            return_type=(
+                self._normalize_type(symbol.return_type) if symbol.return_type else None
+            ),
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _normalize_javascript_symbol(self, symbol: SymbolInfo) -> CodeSignature:
@@ -433,7 +481,7 @@ class SimilarityDetector:
             parameter_types=parameter_types,
             return_type="any",  # JavaScript is dynamically typed
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _normalize_typescript_symbol(self, symbol: SymbolInfo) -> CodeSignature:
@@ -458,9 +506,13 @@ class SimilarityDetector:
             type=symbol.type,
             parameter_count=len(symbol.parameters),
             parameter_types=parameter_types,
-            return_type=self._normalize_type(symbol.return_type) if symbol.return_type else "any",
+            return_type=(
+                self._normalize_type(symbol.return_type)
+                if symbol.return_type
+                else "any"
+            ),
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _normalize_java_symbol(self, symbol: SymbolInfo) -> CodeSignature:
@@ -485,9 +537,13 @@ class SimilarityDetector:
             type=symbol.type,
             parameter_count=len(symbol.parameters),
             parameter_types=parameter_types,
-            return_type=self._normalize_type(symbol.return_type) if symbol.return_type else "void",
+            return_type=(
+                self._normalize_type(symbol.return_type)
+                if symbol.return_type
+                else "void"
+            ),
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _normalize_cpp_symbol(self, symbol: SymbolInfo) -> CodeSignature:
@@ -510,9 +566,13 @@ class SimilarityDetector:
             type=symbol.type,
             parameter_count=len(symbol.parameters),
             parameter_types=parameter_types,
-            return_type=self._normalize_type(symbol.return_type) if symbol.return_type else "void",
+            return_type=(
+                self._normalize_type(symbol.return_type)
+                if symbol.return_type
+                else "void"
+            ),
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _normalize_go_symbol(self, symbol: SymbolInfo) -> CodeSignature:
@@ -533,9 +593,13 @@ class SimilarityDetector:
             type=symbol.type,
             parameter_count=len(symbol.parameters),
             parameter_types=parameter_types,
-            return_type=self._normalize_type(symbol.return_type) if symbol.return_type else "void",
+            return_type=(
+                self._normalize_type(symbol.return_type)
+                if symbol.return_type
+                else "void"
+            ),
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _normalize_rust_symbol(self, symbol: SymbolInfo) -> CodeSignature:
@@ -556,9 +620,11 @@ class SimilarityDetector:
             type=symbol.type,
             parameter_count=len(symbol.parameters),
             parameter_types=parameter_types,
-            return_type=self._normalize_type(symbol.return_type) if symbol.return_type else "()",
+            return_type=(
+                self._normalize_type(symbol.return_type) if symbol.return_type else "()"
+            ),
             modifiers=modifiers,
-            complexity_score=self._estimate_symbol_complexity(symbol)
+            complexity_score=self._estimate_symbol_complexity(symbol),
         )
 
     def _estimate_symbol_complexity(self, symbol: SymbolInfo) -> float:

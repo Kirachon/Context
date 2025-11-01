@@ -16,9 +16,7 @@ class ModelManager:
     def __init__(self):
         self._default_model = settings.ollama_default_model
         self._params: Dict[str, Any] = {}
-        self._models: Dict[str, Dict[str, Any]] = {
-            settings.ollama_default_model: {}
-        }
+        self._models: Dict[str, Dict[str, Any]] = {settings.ollama_default_model: {}}
 
     def set_default_model(self, model: str):
         logger.info(f"Default model set to {model}")
@@ -51,4 +49,3 @@ def get_model_manager() -> ModelManager:
     if _model_manager is None:
         _model_manager = ModelManager()
     return _model_manager
-

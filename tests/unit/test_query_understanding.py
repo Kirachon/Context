@@ -1,13 +1,12 @@
 """
 Unit tests for Query Understanding (Story 2.6)
 """
-import pytest
-from datetime import datetime
-from pathlib import Path
 
-from src.search.query_intent import QueryIntentClassifier, QueryIntent, QueryScope
+import pytest
+
+from src.search.query_intent import QueryIntentClassifier, QueryIntent
 from src.search.query_enhancement import QueryEnhancer
-from src.search.query_history import QueryHistory, QueryRecord
+from src.search.query_history import QueryHistory
 
 
 class TestQueryIntentClassifier:
@@ -84,7 +83,7 @@ class TestQueryEnhancer:
         """Test query enhancement with entities"""
         intent_result = classifier.classify("find UserService")
         enhanced = enhancer.enhance("find UserService", intent_result)
-        
+
         assert enhanced.original_query == "find UserService"
         assert len(enhanced.enhanced_query) > len(enhanced.original_query)
         assert len(enhanced.context_additions) > 0
@@ -93,21 +92,28 @@ class TestQueryEnhancer:
         """Test query enhancement with recent files"""
         intent_result = classifier.classify("find authentication code")
         recent_files = ["src/auth/login.py", "src/auth/token.py"]
-        enhanced = enhancer.enhance("find authentication code", intent_result, recent_files=recent_files)
-        
-        assert "recent" in enhanced.enhanced_query.lower() or len(enhanced.context_additions) > 0
+        enhanced = enhancer.enhance(
+            "find authentication code", intent_result, recent_files=recent_files
+        )
+
+        assert (
+            "recent" in enhanced.enhanced_query.lower()
+            or len(enhanced.context_additions) > 0
+        )
 
     def test_follow_up_questions_search(self, enhancer, classifier):
         """Test follow-up questions for search intent"""
         intent_result = classifier.classify("find database queries")
         questions = enhancer.get_follow_up_questions(intent_result)
-        
+
         assert len(questions) > 0
         assert any("filter" in q.lower() or "type" in q.lower() for q in questions)
 
     def test_follow_up_questions_debug(self, enhancer, classifier):
         """Test follow-up questions for debug intent"""
-        intent_result = classifier.classify("why is this function crashing with null pointer")
+        intent_result = classifier.classify(
+            "why is this function crashing with null pointer"
+        )
         questions = enhancer.get_follow_up_questions(intent_result)
 
         assert len(questions) > 0
@@ -117,14 +123,14 @@ class TestQueryEnhancer:
         """Test tracking recent changes"""
         enhancer.add_recent_change("src/module.py")
         enhancer.add_recent_change("src/other.py")
-        
+
         assert len(enhancer.recent_changes) == 2
         assert enhancer.recent_changes[0] == "src/other.py"
 
     def test_add_pattern(self, enhancer):
         """Test tracking patterns"""
         enhancer.add_pattern("singleton", ["Logger", "Config"])
-        
+
         assert "singleton" in enhancer.common_patterns
         assert "Logger" in enhancer.common_patterns["singleton"]
 
@@ -139,7 +145,7 @@ class TestQueryHistory:
     def test_add_query(self, history):
         """Test adding query to history"""
         record = history.add_query("find functions", "search", 5)
-        
+
         assert record.query == "find functions"
         assert record.intent == "search"
         assert record.results_count == 5
@@ -150,7 +156,7 @@ class TestQueryHistory:
         history.add_query("query 1", "search", 5)
         history.add_query("query 2", "understand", 3)
         history.add_query("query 3", "debug", 2)
-        
+
         recent = history.get_recent(2)
         assert len(recent) == 2
         assert recent[0].query == "query 3"
@@ -160,7 +166,7 @@ class TestQueryHistory:
         history.add_query("find authentication", "search", 5)
         history.add_query("find database", "search", 3)
         history.add_query("understand logging", "understand", 2)
-        
+
         results = history.search_history("find")
         assert len(results) == 2
 
@@ -169,7 +175,7 @@ class TestQueryHistory:
         history.add_query("query 1", "search", 5)
         history.add_query("query 2", "search", 3)
         history.add_query("query 3", "debug", 2)
-        
+
         search_queries = history.get_by_intent("search")
         assert len(search_queries) == 2
 
@@ -177,7 +183,7 @@ class TestQueryHistory:
         """Test rating query quality"""
         history.add_query("find functions", "search", 5)
         history.rate_query(0, 0.9, "Great results")
-        
+
         assert history.history[0].result_quality == 0.9
         assert history.history[0].notes == "Great results"
 
@@ -186,11 +192,11 @@ class TestQueryHistory:
         history.add_query("query 1", "search", 5)
         history.add_query("query 2", "search", 3)
         history.add_query("query 3", "debug", 2)
-        
+
         history.rate_query(0, 0.9)
         history.rate_query(1, 0.5)
         history.rate_query(2, 0.8)
-        
+
         high_quality = history.get_high_quality(min_quality=0.7)
         assert len(high_quality) == 2
 
@@ -199,9 +205,8 @@ class TestQueryHistory:
         history.add_query("query 1", "search", 5)
         history.add_query("query 2", "search", 3)
         history.add_query("query 3", "debug", 2)
-        
+
         stats = history.get_statistics()
         assert stats["total_queries"] == 3
         assert stats["intent_distribution"]["search"] == 2
         assert stats["intent_distribution"]["debug"] == 1
-

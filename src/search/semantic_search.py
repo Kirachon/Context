@@ -4,13 +4,12 @@ Semantic Search Service
 Core semantic search functionality using vector embeddings.
 """
 
-import asyncio
 from src.logging.manager import get_logger
 import os
 import sys
 import time
 import re
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime
 import hashlib
 
@@ -19,12 +18,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from src.search.models import SearchRequest, SearchResponse, SearchResult, SearchStats
 from src.search.filters import SearchFilters, apply_filters
-from src.search.ranking import RankingService, get_ranking_service
+from src.search.ranking import get_ranking_service
 from src.vector_db.embeddings import generate_embedding
 from src.vector_db.vector_store import search_vectors
 from src.search.query_cache import get_query_cache
 from src.analytics.usage import usage
 from src.monitoring.metrics import metrics
+
 # Lazy import inside search() to avoid heavy dependencies during import time
 # from src.indexing.models import get_file_metadata
 
@@ -49,7 +49,7 @@ class SemanticSearchService:
             "cache_hits": 0,
             "errors": 0,
             "response_times": [],
-            "popular_queries": {}
+            "popular_queries": {},
         }
 
         logger.info("SemanticSearchService initialized")
@@ -69,7 +69,9 @@ class SemanticSearchService:
         except Exception:
             return False
 
-    async def _extract_code_snippet(self, file_path: str, max_lines: int = 10) -> Optional[str]:
+    async def _extract_code_snippet(
+        self, file_path: str, max_lines: int = 10
+    ) -> Optional[str]:
         """
         Extract code snippet from file
 
@@ -84,12 +86,12 @@ class SemanticSearchService:
             if not os.path.exists(file_path):
                 return None
 
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
 
             # Take first max_lines or all lines if fewer
             snippet_lines = lines[:max_lines]
-            snippet = ''.join(snippet_lines)
+            snippet = "".join(snippet_lines)
 
             # Add ellipsis if truncated
             if len(lines) > max_lines:
@@ -100,14 +102,17 @@ class SemanticSearchService:
         except Exception as e:
             logger.error(f"Error extracting snippet from {file_path}: {e}")
             return None
+
     def _compute_keyword_score(self, query: str, text: Optional[str]) -> float:
         """Compute simple keyword match score between query and text (0-1)."""
         if not query or not text:
             return 0.0
+
         # Tokenize on non-alphanumeric, lowercase, length >= 3
         def tokenize(s: str) -> set:
             tokens = re.split(r"[^a-zA-Z0-9_]+", s.lower())
             return {t for t in tokens if len(t) >= 3}
+
         q_tokens = tokenize(query)
         t_tokens = tokenize(text)
         if not q_tokens or not t_tokens:
@@ -115,7 +120,6 @@ class SemanticSearchService:
         overlap = q_tokens.intersection(t_tokens)
         # Jaccard-like score weighted towards query coverage
         return min(1.0, len(overlap) / max(1, len(q_tokens)))
-
 
     async def search(self, request: SearchRequest) -> SearchResponse:
         """
@@ -132,7 +136,9 @@ class SemanticSearchService:
         try:
             logger.info(f"Performing semantic search: '{request.query}'")
             usage().incr("semantic_search_requests")
-            c_req = metrics.counter("search_requests_total", "Search requests", ("status",))
+            c_req = metrics.counter(
+                "search_requests_total", "Search requests", ("status",)
+            )
             c_cache = metrics.counter("search_cache_hits_total", "Search cache hits")
             h_req = metrics.histogram("search_request_seconds", "Search latency")
 
@@ -143,7 +149,10 @@ class SemanticSearchService:
             use_global_cache = False
             try:
                 from src.config.settings import settings as _settings
-                use_global_cache = bool(getattr(_settings, "query_cache_redis_enabled", False))
+
+                use_global_cache = bool(
+                    getattr(_settings, "query_cache_redis_enabled", False)
+                )
             except Exception:
                 use_global_cache = False
             qc = get_query_cache() if use_global_cache else None
@@ -193,7 +202,7 @@ class SemanticSearchService:
             # Search vectors
             vector_results = await search_vectors(
                 query_vector=query_embedding,
-                limit=request.limit * 2  # Get more results for filtering
+                limit=request.limit * 2,  # Get more results for filtering
             )
 
             if not vector_results:
@@ -209,7 +218,7 @@ class SemanticSearchService:
                     total_results=0,
                     search_time_ms=(time.time() - start_time) * 1000,
                     filters_applied=applied_filters,
-                    timestamp=datetime.utcnow().isoformat()
+                    timestamp=datetime.utcnow().isoformat(),
                 )
 
                 # Cache empty results too
@@ -237,15 +246,18 @@ class SemanticSearchService:
 
                     # Compute keyword score (hybrid component)
                     keyword_source = f"{payload.get('file_name', os.path.basename(file_path))} {snippet or ''}"
-                    keyword_score = self._compute_keyword_score(request.query, keyword_source)
+                    keyword_score = self._compute_keyword_score(
+                        request.query, keyword_source
+                    )
 
                     # Attempt to enrich metadata with file modified_time
                     modified_time_iso = None
                     try:
                         # Lazy import to avoid heavy dependency at module import time
                         from src.indexing.models import get_file_metadata  # type: ignore
+
                         file_meta = await get_file_metadata(file_path)
-                        if file_meta and getattr(file_meta, 'modified_time', None):
+                        if file_meta and getattr(file_meta, "modified_time", None):
                             modified_time_iso = file_meta.modified_time.isoformat()
                     except Exception:
                         modified_time_iso = None
@@ -257,8 +269,7 @@ class SemanticSearchService:
                         file_type=payload.get("file_type", "unknown"),
                         similarity_score=vector_result["score"],
                         confidence_score=self.ranking_service.calculate_confidence_score(
-                            vector_result["score"],
-                            payload.get("size", 0)
+                            vector_result["score"], payload.get("size", 0)
                         ),
                         file_size=payload.get("size", 0),
                         snippet=snippet,
@@ -267,8 +278,8 @@ class SemanticSearchService:
                             "modified_time": modified_time_iso,
                             "vector_id": vector_result["id"],
                             "author": payload.get("author"),
-                            "keyword_score": keyword_score
-                        }
+                            "keyword_score": keyword_score,
+                        },
                     )
 
                     search_results.append(search_result)
@@ -278,19 +289,22 @@ class SemanticSearchService:
                     continue
 
             # Apply filters (including advanced filters)
-            filtered_results = apply_filters(search_results, SearchFilters(
-                file_types=request.file_types,
-                directories=request.directories,
-                exclude_patterns=request.exclude_patterns,
-                min_score=request.min_score,
-                authors=getattr(request, 'authors', None),
-                modified_after=getattr(request, 'modified_after', None),
-                modified_before=getattr(request, 'modified_before', None)
-            ))
+            filtered_results = apply_filters(
+                search_results,
+                SearchFilters(
+                    file_types=request.file_types,
+                    directories=request.directories,
+                    exclude_patterns=request.exclude_patterns,
+                    min_score=request.min_score,
+                    authors=getattr(request, "authors", None),
+                    modified_after=getattr(request, "modified_after", None),
+                    modified_before=getattr(request, "modified_before", None),
+                ),
+            )
 
             # Rank and limit results
             ranked_results = self.ranking_service.rank_results(filtered_results)
-            final_results = ranked_results[:request.limit]
+            final_results = ranked_results[: request.limit]
 
             # Create response
             search_time_ms = (time.time() - start_time) * 1000
@@ -301,7 +315,7 @@ class SemanticSearchService:
                 total_results=len(filtered_results),
                 search_time_ms=search_time_ms,
                 filters_applied=applied_filters,
-                timestamp=datetime.utcnow().isoformat()
+                timestamp=datetime.utcnow().isoformat(),
             )
 
             # Cache response (global + local)
@@ -324,9 +338,13 @@ class SemanticSearchService:
 
             # Track popular queries
             query_lower = request.query.lower()
-            self.stats["popular_queries"][query_lower] = self.stats["popular_queries"].get(query_lower, 0) + 1
+            self.stats["popular_queries"][query_lower] = (
+                self.stats["popular_queries"].get(query_lower, 0) + 1
+            )
 
-            logger.info(f"Search completed: {len(final_results)} results in {search_time_ms:.2f}ms")
+            logger.info(
+                f"Search completed: {len(final_results)} results in {search_time_ms:.2f}ms"
+            )
             return response
 
         except Exception as e:
@@ -371,7 +389,9 @@ class SemanticSearchService:
         # Calculate averages
         avg_response_time = 0.0
         if self.stats["response_times"]:
-            avg_response_time = sum(self.stats["response_times"]) / len(self.stats["response_times"])
+            avg_response_time = sum(self.stats["response_times"]) / len(
+                self.stats["response_times"]
+            )
 
         # Calculate cache hit rate
         cache_hit_rate = 0.0
@@ -386,9 +406,7 @@ class SemanticSearchService:
 
         # Get popular queries (top 10)
         popular_queries = sorted(
-            self.stats["popular_queries"].items(),
-            key=lambda x: x[1],
-            reverse=True
+            self.stats["popular_queries"].items(), key=lambda x: x[1], reverse=True
         )[:10]
         popular_queries = [query for query, count in popular_queries]
 
@@ -398,7 +416,7 @@ class SemanticSearchService:
             cache_hit_rate=cache_hit_rate,
             popular_queries=popular_queries,
             error_rate=error_rate,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
         )
 
     def clear_cache(self):

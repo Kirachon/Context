@@ -6,8 +6,8 @@ Tracks and reports indexing performance metrics for optimization.
 
 import logging
 from typing import Dict, List, Any
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BatchMetrics:
     """Metrics for a single indexing batch"""
+
     batch_id: int
     batch_size: int
     start_time: datetime
@@ -23,7 +24,7 @@ class BatchMetrics:
     files_processed: int = 0
     files_failed: int = 0
     total_duration: float = 0.0
-    
+
     def complete(self):
         """Mark batch as complete"""
         self.end_time = datetime.utcnow()
@@ -33,25 +34,25 @@ class BatchMetrics:
 class IndexingMetricsCollector:
     """
     Collects and analyzes indexing performance metrics
-    
+
     Tracks:
     - Batch processing times
     - Throughput (files per second)
     - Success/failure rates
     - Performance trends
     """
-    
+
     def __init__(self, max_history: int = 1000):
         """
         Initialize metrics collector
-        
+
         Args:
             max_history: Maximum number of batches to keep in history
         """
         self.max_history = max_history
         self.batch_history: List[BatchMetrics] = []
         self.current_batch_id = 0
-        
+
         # Statistics
         self.stats = {
             "total_batches": 0,
@@ -60,19 +61,19 @@ class IndexingMetricsCollector:
             "total_duration": 0.0,
             "avg_batch_time": 0.0,
             "avg_throughput": 0.0,  # files per second
-            "success_rate": 0.0
+            "success_rate": 0.0,
         }
-        
+
         # Performance by batch size
         self.performance_by_batch_size: Dict[int, List[float]] = defaultdict(list)
-    
+
     def start_batch(self, batch_size: int) -> int:
         """
         Start tracking a new batch
-        
+
         Args:
             batch_size: Number of files in batch
-            
+
         Returns:
             Batch ID
         """
@@ -80,25 +81,22 @@ class IndexingMetricsCollector:
         batch = BatchMetrics(
             batch_id=self.current_batch_id,
             batch_size=batch_size,
-            start_time=datetime.utcnow()
+            start_time=datetime.utcnow(),
         )
         self.batch_history.append(batch)
-        
+
         # Keep history size under control
         if len(self.batch_history) > self.max_history:
             self.batch_history.pop(0)
-        
+
         return self.current_batch_id
-    
+
     def complete_batch(
-        self,
-        batch_id: int,
-        files_processed: int,
-        files_failed: int = 0
+        self, batch_id: int, files_processed: int, files_failed: int = 0
     ):
         """
         Mark batch as complete
-        
+
         Args:
             batch_id: ID of batch to complete
             files_processed: Number of files successfully processed
@@ -110,42 +108,44 @@ class IndexingMetricsCollector:
             if b.batch_id == batch_id:
                 batch = b
                 break
-        
+
         if not batch:
             logger.warning(f"Batch {batch_id} not found")
             return
-        
+
         # Update batch
         batch.files_processed = files_processed
         batch.files_failed = files_failed
         batch.complete()
-        
+
         # Update statistics
         self.stats["total_batches"] += 1
         self.stats["total_files_processed"] += files_processed
         self.stats["total_files_failed"] += files_failed
         self.stats["total_duration"] += batch.total_duration
-        
+
         # Track performance by batch size
-        throughput = files_processed / batch.total_duration if batch.total_duration > 0 else 0
+        throughput = (
+            files_processed / batch.total_duration if batch.total_duration > 0 else 0
+        )
         self.performance_by_batch_size[batch.batch_size].append(throughput)
-        
+
         # Update averages
         self._update_statistics()
-        
+
         logger.debug(
             f"Batch {batch_id} complete: "
             f"{files_processed} processed, {files_failed} failed, "
             f"{batch.total_duration:.2f}s"
         )
-    
+
     def _update_statistics(self):
         """Update aggregate statistics"""
         if self.stats["total_batches"] > 0:
             self.stats["avg_batch_time"] = (
                 self.stats["total_duration"] / self.stats["total_batches"]
             )
-        
+
         total_files = (
             self.stats["total_files_processed"] + self.stats["total_files_failed"]
         )
@@ -153,12 +153,12 @@ class IndexingMetricsCollector:
             self.stats["success_rate"] = (
                 self.stats["total_files_processed"] / total_files * 100
             )
-        
+
         if self.stats["total_duration"] > 0:
             self.stats["avg_throughput"] = (
                 self.stats["total_files_processed"] / self.stats["total_duration"]
             )
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get current statistics"""
         return {
@@ -168,16 +168,16 @@ class IndexingMetricsCollector:
             "total_duration": round(self.stats["total_duration"], 2),
             "avg_batch_time": round(self.stats["avg_batch_time"], 2),
             "avg_throughput": round(self.stats["avg_throughput"], 2),
-            "success_rate": round(self.stats["success_rate"], 2)
+            "success_rate": round(self.stats["success_rate"], 2),
         }
-    
+
     def get_batch_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Get recent batch history
-        
+
         Args:
             limit: Maximum number of batches to return
-            
+
         Returns:
             List of batch metrics
         """
@@ -191,59 +191,63 @@ class IndexingMetricsCollector:
                 "duration": round(b.total_duration, 2),
                 "throughput": round(
                     b.files_processed / b.total_duration if b.total_duration > 0 else 0,
-                    2
-                )
+                    2,
+                ),
             }
             for b in recent
         ]
-    
+
     def get_optimal_batch_size(self) -> int:
         """
         Determine optimal batch size based on performance data
-        
+
         Returns:
             Recommended batch size
         """
         if not self.performance_by_batch_size:
             return 10  # Default
-        
+
         # Find batch size with highest throughput
         best_size = 10
         best_throughput = 0
-        
+
         for batch_size, throughputs in self.performance_by_batch_size.items():
             avg_throughput = sum(throughputs) / len(throughputs)
             if avg_throughput > best_throughput:
                 best_throughput = avg_throughput
                 best_size = batch_size
-        
+
         return best_size
-    
+
     def get_performance_trend(self, window_size: int = 10) -> Dict[str, Any]:
         """
         Get performance trend over recent batches
-        
+
         Args:
             window_size: Number of recent batches to analyze
-            
+
         Returns:
             Trend analysis
         """
         recent = self.batch_history[-window_size:]
-        
+
         if not recent:
             return {"trend": "no_data"}
-        
+
         throughputs = [
             b.files_processed / b.total_duration if b.total_duration > 0 else 0
             for b in recent
         ]
-        
+
         # Calculate trend
         if len(throughputs) >= 2:
-            first_half = sum(throughputs[:len(throughputs)//2]) / (len(throughputs)//2)
-            second_half = sum(throughputs[len(throughputs)//2:]) / (len(throughputs) - len(throughputs)//2)
-            
+            first_half = sum(throughputs[: len(throughputs) // 2]) / (
+                len(throughputs) // 2
+            )
+            second_half = sum(throughputs[len(throughputs) // 2 :]) / (
+                len(throughputs) - len(throughputs) // 2
+            )
+
             if second_half > first_half * 1.1:
                 trend = "improving"
             elif second_half < first_half * 0.9:
@@ -252,13 +256,13 @@ class IndexingMetricsCollector:
                 trend = "stable"
         else:
             trend = "insufficient_data"
-        
+
         return {
             "trend": trend,
             "recent_throughputs": [round(t, 2) for t in throughputs],
-            "avg_throughput": round(sum(throughputs) / len(throughputs), 2)
+            "avg_throughput": round(sum(throughputs) / len(throughputs), 2),
         }
-    
+
     def clear_history(self):
         """Clear all metrics history"""
         self.batch_history.clear()
@@ -269,7 +273,7 @@ class IndexingMetricsCollector:
             "total_duration": 0.0,
             "avg_batch_time": 0.0,
             "avg_throughput": 0.0,
-            "success_rate": 0.0
+            "success_rate": 0.0,
         }
         self.performance_by_batch_size.clear()
 
@@ -284,4 +288,3 @@ def get_indexing_metrics() -> IndexingMetricsCollector:
     if _metrics_collector is None:
         _metrics_collector = IndexingMetricsCollector()
     return _metrics_collector
-

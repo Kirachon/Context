@@ -4,7 +4,11 @@ Context Vector Database Package
 Provides Qdrant integration, embedding generation, and vector operations.
 """
 
-from src.vector_db.qdrant_client import QdrantClientService, get_qdrant_client, get_qdrant_status
+from src.vector_db.qdrant_client import (
+    QdrantClientService,
+    get_qdrant_client,
+    get_qdrant_status,
+)
 from src.vector_db.embeddings import EmbeddingService, get_embedding_service
 from src.vector_db.vector_store import VectorStore, get_vector_store
 
@@ -17,4 +21,3 @@ __all__ = [
     "VectorStore",
     "get_vector_store",
 ]
-

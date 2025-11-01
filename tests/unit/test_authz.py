@@ -1,8 +1,9 @@
 """
 Unit tests for RBAC Authz (Story 4-1)
 """
+
 import pytest
-from src.security.authz import set_role, get_role, require_role, Roles
+from src.security.authz import set_role, require_role, Roles
 
 
 @pytest.mark.asyncio
@@ -19,4 +20,3 @@ async def test_require_role_allows_and_denies():
 
     with pytest.raises(PermissionError):
         await dev_action()
-
