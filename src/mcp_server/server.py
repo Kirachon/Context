@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 import logging
 import time
 
+from typing import Optional, Dict, Any
+
 from contextlib import asynccontextmanager
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -518,6 +520,52 @@ async def metrics_prometheus():
             },
         )
 
+
+# Prompt generation models and endpoint
+class PromptGenerateRequest(BaseModel):
+    prompt: str
+    model: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+
+
+class PromptGenerateResponse(BaseModel):
+    success: bool
+    model: str
+    response: str
+    timestamp: str
+
+
+@app.post("/prompt/generate", response_model=PromptGenerateResponse, status_code=status.HTTP_200_OK)
+async def prompt_generate_endpoint(req: PromptGenerateRequest):
+    """
+    Generate a response via Ollama using the existing AI processing layer.
+
+    This provides a stable REST interface for long-term use.
+    """
+    try:
+        from src.ai_processing.response_generator import get_response_generator
+        from src.config.settings import settings as _settings
+
+        generator = get_response_generator()
+        model_used = req.model or getattr(_settings, "ollama_default_model", "codellama:7b")
+        text = await generator.generate(req.prompt, model=model_used, context=req.context)
+
+        return PromptGenerateResponse(
+            success=True,
+            model=model_used,
+            response=text,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"/prompt/generate error: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
 @app.get("/ready", status_code=status.HTTP_200_OK)
 async def ready():
