@@ -61,6 +61,34 @@ services:
     networks:
       - context-network
 
+  # Ollama - Local LLM runtime (GPU-enabled, CPU-safe)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: context-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # Prefer device requests (may be ignored outside Swarm)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    # Compose v2 GPU flag (effective on Docker Desktop/WSL2)
+    gpus: all
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "/bin/ollama", "list"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+    networks:
+      - context-network
+
+
   # Context Server - Main application (development mode)
   context-server:
     build:
@@ -89,6 +117,9 @@ services:
       - ENVIRONMENT=${ENVIRONMENT}
       - MCP_ENABLED=${MCP_ENABLED}
       - MCP_SERVER_NAME=${MCP_SERVER_NAME}
+      - API_AUTH_ENABLED=${API_AUTH_ENABLED}
+      - API_AUTH_SCHEME=${API_AUTH_SCHEME}
+      - API_KEY=${API_KEY}
       - DEBUG=${DEBUG:-true}
     depends_on:
       postgres:
@@ -151,7 +182,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
     volumes:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
@@ -172,6 +203,9 @@ volumes:
     driver: local
   prometheus_data:
     driver: local
+  ollama_data:
+    driver: local
+
 
 networks:
   context-network:
