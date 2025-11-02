@@ -97,6 +97,8 @@ services:
     container_name: context-server
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     volumes:
       - ../../src:/app/src
       - ../../tests:/app/tests
@@ -105,25 +107,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - QDRANT_HOST=${QDRANT_HOST}
-      - QDRANT_PORT=${QDRANT_PORT}
-      - QDRANT_COLLECTION=${QDRANT_COLLECTION}
-      - QDRANT_VECTOR_SIZE=${QDRANT_VECTOR_SIZE}
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - MCP_ENABLED=${MCP_ENABLED}
-      - MCP_SERVER_NAME=${MCP_SERVER_NAME}
-      - API_AUTH_ENABLED=${API_AUTH_ENABLED}
-      - API_AUTH_SCHEME=${API_AUTH_SCHEME}
-      - API_KEY=${API_KEY}
-      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}
-      - RATE_LIMIT_REQUESTS_PER_MINUTE=${RATE_LIMIT_REQUESTS_PER_MINUTE}
-      - RATE_LIMIT_KEY=${RATE_LIMIT_KEY}
-      - DEBUG=${DEBUG:-true}
+      - DEBUG=true
     depends_on:
       postgres:
         condition: service_healthy

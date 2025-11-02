@@ -168,3 +168,29 @@ class DependencyAnalyzer:
                 if s.name == symbol_name:
                     return str(p.file_path)
         return None
+
+
+# Module-level stub function for MCP tool integration
+def extract_dependencies(file_path: str) -> Dict:
+    """
+    Extract dependencies from file.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        file_path: File path to analyze
+
+    Returns:
+        Dict with status and extracted dependencies
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"DependencyAnalyzer stub called with file_path: {file_path}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "extract_dependencies is a stub implementation",
+        "file_path": file_path,
+        "results": [],
+        "dependencies": [],
+        "data": {}
+    }

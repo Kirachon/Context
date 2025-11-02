@@ -143,3 +143,28 @@ def get_query_cache() -> QueryCache:
                 max_items=getattr(settings, "cache_max_items", 500),
             )
     return _query_cache
+
+
+# Module-level stub function for MCP tool integration
+def get_cached_result(query: str) -> Dict[str, Any]:
+    """
+    Get cached query result.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        query: Query string to look up
+
+    Returns:
+        Dict with status and cached result if found
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"QueryCache stub called with query: {query}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "get_cached_result is a stub implementation",
+        "results": [],
+        "cache_hit": False,
+        "data": {}
+    }

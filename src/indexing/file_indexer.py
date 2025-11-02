@@ -22,19 +22,39 @@ import src.indexing.models as _indexing_models
 
 
 async def create_file_metadata(metadata: dict):
-    return await _indexing_models.create_file_metadata(metadata)
+    """Create file metadata with graceful database failure handling"""
+    try:
+        return await _indexing_models.create_file_metadata(metadata)
+    except Exception as e:
+        logger.warning(f"Database unavailable for create_file_metadata: {e}. Continuing without metadata storage.")
+        return None  # Graceful degradation - continue without DB
 
 
 async def update_file_metadata(file_path: str, metadata: dict):
-    return await _indexing_models.update_file_metadata(file_path, metadata)
+    """Update file metadata with graceful database failure handling"""
+    try:
+        return await _indexing_models.update_file_metadata(file_path, metadata)
+    except Exception as e:
+        logger.warning(f"Database unavailable for update_file_metadata: {e}. Continuing without metadata storage.")
+        return None  # Graceful degradation - continue without DB
 
 
 async def get_file_metadata(file_path: str):
-    return await _indexing_models.get_file_metadata(file_path)
+    """Get file metadata with graceful database failure handling"""
+    try:
+        return await _indexing_models.get_file_metadata(file_path)
+    except Exception as e:
+        logger.warning(f"Database unavailable for get_file_metadata: {e}. Assuming file not in metadata DB.")
+        return None  # Graceful degradation - assume file doesn't exist in DB
 
 
 async def delete_file_metadata(file_path: str):
-    return await _indexing_models.delete_file_metadata(file_path)
+    """Delete file metadata with graceful database failure handling"""
+    try:
+        return await _indexing_models.delete_file_metadata(file_path)
+    except Exception as e:
+        logger.warning(f"Database unavailable for delete_file_metadata: {e}. Continuing without metadata deletion.")
+        return False  # Graceful degradation - continue without DB
 
 
 logger = logging.getLogger(__name__)

@@ -302,3 +302,26 @@ def get_result_presenter() -> SearchResultPresenter:
     if _result_presenter is None:
         _result_presenter = SearchResultPresenter()
     return _result_presenter
+
+
+# Module-level stub function for MCP tool integration
+def format_results(results: list) -> Dict:
+    """
+    Format search results.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        results: List of search results to format
+
+    Returns:
+        Dict with status and formatted results
+    """
+    logger.warning(f"SearchResultPresenter stub called with {len(results)} results")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "format_results is a stub implementation",
+        "results": [],
+        "formatted_results": [],
+        "data": {}
+    }

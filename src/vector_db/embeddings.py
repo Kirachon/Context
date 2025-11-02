@@ -377,6 +377,10 @@ async def initialize_embeddings():
 
 async def generate_embedding(text: str) -> Optional[List[float]]:
     """Generate embedding (entry point for integration)"""
+    # Ensure embedding service is initialized
+    if embedding_service.model is None:
+        logger.info("Embedding service not initialized, initializing now...")
+        await embedding_service.initialize()
     return await embedding_service.generate_embedding(text)
 
 
@@ -384,6 +388,10 @@ async def generate_code_embedding(
     code: str, file_path: str = "", language: str = ""
 ) -> Optional[List[float]]:
     """Generate code embedding (entry point for integration)"""
+    # Ensure embedding service is initialized
+    if embedding_service.model is None:
+        logger.info("Embedding service not initialized, initializing now...")
+        await embedding_service.initialize()
     return await embedding_service.generate_code_embedding(code, file_path, language)
 
 

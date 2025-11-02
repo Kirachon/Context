@@ -296,3 +296,26 @@ ranking_service = RankingService()
 def get_ranking_service() -> RankingService:
     """Get ranking service instance"""
     return ranking_service
+
+
+# Module-level stub function for MCP tool integration
+def rank_results(results: list) -> Dict:
+    """
+    Rank search results by relevance.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        results: List of search results to rank
+
+    Returns:
+        Dict with status and ranked results
+    """
+    logger.warning(f"RankingService stub called with {len(results)} results")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "rank_results is a stub implementation",
+        "results": [],
+        "ranked_results": [],
+        "data": {}
+    }

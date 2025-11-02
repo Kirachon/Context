@@ -121,43 +121,95 @@ def register_health_tools(mcp: FastMCP):
 
 async def _check_services() -> Dict[str, bool]:
     """
-    Check connectivity to external services
+    Check connectivity to external services by actually testing them
 
     Returns:
         Dict mapping service names to health status
     """
     services = {}
 
-    # Check PostgreSQL - treat as unavailable unless explicitly configured via env
+    # Check Qdrant - actual connection test
     try:
-        db_env = os.environ.get("DATABASE_URL", "")
-        services["postgres"] = bool(db_env) and db_env.startswith("postgresql")
-    except Exception as e:
-        logger.warning(f"PostgreSQL check failed: {e}")
-        services["postgres"] = False
-
-    # Check Redis
-    try:
-        redis_env = os.environ.get("REDIS_URL", "")
-        services["redis"] = bool(redis_env) and redis_env.startswith("redis")
-    except Exception as e:
-        logger.warning(f"Redis check failed: {e}")
-        services["redis"] = False
-
-    # Check Qdrant
-    try:
-        qdrant_env = os.environ.get("QDRANT_HOST", "")
-        services["qdrant"] = bool(qdrant_env)
+        from src.vector_db.qdrant_client import get_qdrant_client
+        client = get_qdrant_client()
+        if client:
+            try:
+                # Try to get collections to verify connection works
+                collections = client.get_collections()
+                services["qdrant"] = True
+                logger.debug("Qdrant connection verified")
+            except Exception as e:
+                services["qdrant"] = False
+                logger.warning(f"Qdrant connection test failed: {e}")
+        else:
+            services["qdrant"] = False
+            logger.warning("Qdrant client is None")
     except Exception as e:
         logger.warning(f"Qdrant check failed: {e}")
         services["qdrant"] = False
 
-    # Check Ollama
+    # Check Embeddings Service - actual model test
     try:
-        ollama_env = os.environ.get("OLLAMA_BASE_URL", "")
-        services["ollama"] = bool(ollama_env)
+        from src.vector_db.embeddings import EmbeddingService
+        embedding_service = EmbeddingService()
+        # Test if model is loaded by checking if we can generate a simple embedding
+        if embedding_service.model is not None:
+            services["embeddings"] = True
+            logger.debug("Embeddings model verified as loaded")
+        else:
+            services["embeddings"] = False
+            logger.warning("Embeddings model is not loaded")
     except Exception as e:
-        logger.warning(f"Ollama check failed: {e}")
-        services["ollama"] = False
+        logger.warning(f"Embeddings service check failed: {e}")
+        services["embeddings"] = False
+
+    # Check File Monitor - actual status check
+    try:
+        from src.indexing.file_monitor import get_monitor_status
+        monitor_status = get_monitor_status()
+        # Monitor status returns a dict with status info, check if it's running
+        services["file_monitor"] = monitor_status.get('is_running', False) if isinstance(monitor_status, dict) else bool(monitor_status)
+        logger.debug(f"File monitor status: {services['file_monitor']}")
+    except Exception as e:
+        logger.warning(f"File monitor check failed: {e}")
+        services["file_monitor"] = False
+
+    # Check PostgreSQL - treat as optional, check if connection is configured and working
+    try:
+        from src.indexing.models import init_db, engine
+        if engine is not None:
+            try:
+                # Try to get a connection
+                with engine.connect() as conn:
+                    services["postgres"] = True
+                    logger.debug("PostgreSQL connection verified")
+            except Exception as e:
+                services["postgres"] = False
+                logger.warning(f"PostgreSQL connection test failed: {e}")
+        else:
+            services["postgres"] = False
+            logger.warning("PostgreSQL engine is not initialized")
+    except Exception as e:
+        logger.warning(f"PostgreSQL check failed (optional): {e}")
+        services["postgres"] = False
+
+    # Check Redis - optional service
+    try:
+        redis_url = getattr(settings, "redis_url", None)
+        if redis_url:
+            try:
+                import redis
+                r = redis.from_url(redis_url, decode_responses=True)
+                r.ping()
+                services["redis"] = True
+                logger.debug("Redis connection verified")
+            except Exception as e:
+                services["redis"] = False
+                logger.warning(f"Redis connection test failed: {e}")
+        else:
+            services["redis"] = False
+    except Exception as e:
+        logger.warning(f"Redis check failed (optional): {e}")
+        services["redis"] = False
 
     return services

@@ -91,10 +91,24 @@ curl http://localhost:8000/health
 
 ---
 
+---
+
+## Step 5: First-time Codebase Indexing (optional)
+
+If you plan to use the MCP tools (e.g., via Claude Code), perform an initial bulk index of your project so context-aware prompts can retrieve relevant code immediately.
+
+Examples (from your MCP client):
+
+```
+initialize_codebase()                 # index default paths from settings.indexed_paths
+initialize_codebase(paths=["./src"])  # index a specific directory
+```
+
+
 ## Verification Checklist
 
 - [ ] All 7 containers running (`docker-compose ps`)
-- [ ] Health endpoint returns `{"status":"healthy"}` 
+- [ ] Health endpoint returns `{"status":"healthy"}`
 - [ ] Grafana dashboard shows metrics
 - [ ] Prometheus shows target "context-server" as UP
 - [ ] API docs accessible at http://localhost:8000/docs

@@ -223,3 +223,30 @@ class StreamingPaginator:
             chunk_data["progress_percent"] = round(progress_percent, 2)
             chunk_data["is_last"] = chunk_data["total_processed"] >= total
             yield chunk_data
+
+
+# Module-level stub function for MCP tool integration
+def paginate(results: list, page: int = 1, page_size: int = 10) -> Dict:
+    """
+    Paginate search results.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        results: List of results to paginate
+        page: Page number (1-indexed)
+        page_size: Number of results per page
+
+    Returns:
+        Dict with status and paginated results
+    """
+    logger.warning(f"CursorPaginator stub called with {len(results)} results, page={page}, page_size={page_size}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "paginate is a stub implementation",
+        "results": [],
+        "total_count": len(results),
+        "page": page,
+        "page_size": page_size,
+        "data": {}
+    }

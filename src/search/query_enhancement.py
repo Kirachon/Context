@@ -174,3 +174,29 @@ class QueryEnhancer:
             questions.append("Are you optimizing for speed, memory, or both?")
 
         return questions[:2]  # Return top 2 questions
+
+
+# Module-level stub function for MCP tool integration
+def enhance_query(query: str) -> Dict:
+    """
+    Enhance query with context.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        query: Original query string
+
+    Returns:
+        Dict with status and enhanced query
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"QueryEnhancer stub called with query: {query}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "enhance_query is a stub implementation",
+        "original_query": query,
+        "enhanced_query": query,
+        "context_additions": [],
+        "data": {}
+    }

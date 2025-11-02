@@ -476,3 +476,28 @@ def get_ast_search_service() -> ASTSearchService:
     if _global_ast_search is None:
         _global_ast_search = ASTSearchService()
     return _global_ast_search
+
+
+# Module-level stub function for MCP tool integration
+async def search_ast(query: str, limit: int = 10) -> Dict:
+    """
+    Search AST metadata.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        query: Search query string
+        limit: Maximum number of results
+
+    Returns:
+        Dict with status and AST search results
+    """
+    logger.warning(f"ASTSearchService stub called with query: {query}, limit={limit}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "search_ast is a stub implementation",
+        "query": query,
+        "results": [],
+        "total_results": 0,
+        "data": {}
+    }

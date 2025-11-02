@@ -178,3 +178,17 @@ def get_pattern_search_service() -> PatternSearchService:
     if _service is None:
         _service = PatternSearchService()
     return _service
+
+
+async def search_pattern(pattern: str, limit: int = 10, **kwargs) -> Dict:
+    """
+    Search code using pattern matching
+
+    Stub implementation for MCP tool integration.
+    """
+    logger.warning(f"Pattern search stub called with pattern={pattern}, limit={limit}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "Pattern search is a stub implementation",
+        "results": []
+    }

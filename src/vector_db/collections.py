@@ -182,7 +182,7 @@ class CollectionManager:
                 "distance": collection_info.config.params.vectors.distance.value,
                 "indexed_vectors_count": collection_info.indexed_vectors_count or 0,
                 "segments_count": (
-                    len(collection_info.segments) if collection_info.segments else 0
+                    len(collection_info.segments) if hasattr(collection_info, 'segments') and collection_info.segments else 0
                 ),
             }
 

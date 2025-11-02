@@ -229,3 +229,42 @@ class QueryIntentClassifier:
             hints["performance_focused"] = True
 
         return hints
+
+
+# Global classifier instance
+_classifier: Optional[QueryIntentClassifier] = None
+
+
+def get_query_intent_classifier() -> QueryIntentClassifier:
+    """Get or create the global query intent classifier"""
+    global _classifier
+    if _classifier is None:
+        _classifier = QueryIntentClassifier()
+    return _classifier
+
+
+async def classify_intent(query: str) -> Dict[str, Any]:
+    """
+    Classify the intent of a user query
+
+    Stub implementation for MCP tool integration.
+    """
+    try:
+        classifier = get_query_intent_classifier()
+        result = classifier.classify(query)
+        return {
+            "status": "OK",
+            "intent": result.intent.value,
+            "confidence": result.confidence,
+            "scope": {"level": result.scope.level, "target": result.scope.target},
+            "entities": result.entities,
+            "keywords": result.keywords,
+            "context_hints": result.context_hints
+        }
+    except Exception as e:
+        return {
+            "status": "ERROR",
+            "message": str(e),
+            "intent": "unknown",
+            "confidence": 0.0
+        }

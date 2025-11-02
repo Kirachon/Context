@@ -665,3 +665,27 @@ def get_similarity_detector() -> SimilarityDetector:
     if _global_detector is None:
         _global_detector = SimilarityDetector()
     return _global_detector
+
+
+# Module-level stub function for MCP tool integration
+def find_similar_code(directory: str) -> Dict:
+    """
+    Find similar code patterns in directory.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        directory: Directory path to analyze
+
+    Returns:
+        Dict with status and similarity matches
+    """
+    logger.warning(f"SimilarityDetector stub called with directory: {directory}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "find_similar_code is a stub implementation",
+        "directory": directory,
+        "results": [],
+        "matches": [],
+        "data": {}
+    }

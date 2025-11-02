@@ -265,3 +265,29 @@ def get_result_navigator() -> SearchResultNavigator:
     if _result_navigator is None:
         _result_navigator = SearchResultNavigator()
     return _result_navigator
+
+
+# Module-level stub function for MCP tool integration
+def navigate_results(results: list, current: int, direction: str) -> Dict:
+    """
+    Navigate through search results.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        results: List of search results
+        current: Current result index
+        direction: Navigation direction ('next', 'prev', 'first', 'last')
+
+    Returns:
+        Dict with status and navigation info
+    """
+    logger.warning(f"SearchResultNavigator stub called with {len(results)} results, current={current}, direction={direction}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "navigate_results is a stub implementation",
+        "results": [],
+        "current_index": current,
+        "direction": direction,
+        "data": {}
+    }

@@ -85,6 +85,23 @@ pytest tests/integration/ -v             # Integration tests
 pytest tests/integration/test_tree_sitter_smoke.py -v  # Tree-sitter smoke tests
 ```
 
+## Context-Aware Prompts (MCP)
+
+Use the new MCP tools to automatically retrieve relevant code context and enhance prompts:
+
+- `context_aware_prompt(prompt, ...)` – auto search → retrieve → enhance → optionally generate response
+- `context_search(prompt, ...)` – preview retrieved code snippets without generation
+- `initialize_codebase(paths=None, recursive=True)` – first-time/bulk indexing
+
+Examples (via MCP client like Claude Code):
+
+```
+context_aware_prompt("How does authentication work?")
+context_search("jwt token generation", limit=5)
+initialize_codebase()  # indexes paths from settings.indexed_paths
+```
+
+
 ## License
 
 MIT License - see LICENSE file for details.
