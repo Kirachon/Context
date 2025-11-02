@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     # Correlation ID
     correlation_id_header: str = "X-Request-ID"
 
+    # Rate limiting (simple in-process)
+    rate_limit_enabled: bool = False
+    rate_limit_requests_per_minute: int = 60
+    rate_limit_key: str = "ip"  # options: ip, api_key
+
     # MCP Server configuration
     mcp_enabled: bool = True
     mcp_server_name: str = "Context"
