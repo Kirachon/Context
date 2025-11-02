@@ -177,6 +177,80 @@ class OllamaClient:
             f"Ollama request failed after {self.max_retries} attempts: {last_exc}"
         )
 
+    async def generate_response_stream(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Generate streaming text response from Ollama.
+
+        Yields chunks of text as they arrive from the model.
+        """
+        from src.monitoring.metrics import metrics
+
+        url = f"{self.base_url}/api/generate"
+        model_name = model or settings.ollama_default_model
+        payload = {
+            "model": model_name,
+            "prompt": self._build_prompt(prompt, context),
+            "stream": True,
+        }
+
+        logger.debug(f"Ollama streaming request -> {url} model={model_name}")
+
+        if aiohttp is None:
+            raise RuntimeError("aiohttp not installed; cannot call Ollama HTTP API")
+
+        # Metrics
+        c_ok = metrics.counter(
+            "ollama_requests_total", "Ollama requests", ("model", "status")
+        )
+
+        # Circuit breaker check
+        if not self._cb_allow():
+            logger.warning("Ollama circuit open; request short-circuited")
+            try:
+                c_ok.labels(model_name, "circuit_open").inc()
+            except Exception:
+                pass
+            raise RuntimeError("Ollama circuit is open")
+
+        try:
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, json=payload) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.content:
+                        if line:
+                            try:
+                                chunk = line.decode("utf-8").strip()
+                                if chunk:
+                                    import json
+                                    data = json.loads(chunk)
+                                    if "response" in data:
+                                        yield data["response"]
+                                    if data.get("done", False):
+                                        break
+                            except Exception as e:
+                                logger.warning(f"Error parsing streaming chunk: {e}")
+                                continue
+            self._cb_record_success()
+            try:
+                c_ok.labels(model_name, "ok").inc()
+            except Exception:
+                pass
+        except Exception as e:
+            self._cb_record_failure()
+            try:
+                c_ok.labels(model_name, "error").inc()
+            except Exception:
+                pass
+            logger.error(f"Ollama streaming request failed: {e}", exc_info=True)
+            raise RuntimeError(f"Ollama streaming request failed: {e}")
+
+
     def _build_prompt(self, prompt: str, context: Optional[Dict[str, Any]]) -> str:
         if not context:
             return prompt
