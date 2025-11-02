@@ -138,6 +138,22 @@ from src.logging.manager import set_correlation_id
 import uuid
 
 
+# Simple in-process rate limiter state
+_RATE_LIMIT_STATE: dict[str, list[float]] = {}
+
+
+def _rate_limit_allow(key: str, limit: int, window_seconds: int = 60) -> bool:
+    now = time.time()
+    bucket = _RATE_LIMIT_STATE.get(key, [])
+    # drop old
+    bucket = [t for t in bucket if now - t < window_seconds]
+    if len(bucket) >= limit:
+        _RATE_LIMIT_STATE[key] = bucket
+        return False
+    bucket.append(now)
+    _RATE_LIMIT_STATE[key] = bucket
+    return True
+
 @app.middleware("http")
 async def correlation_and_auth_middleware(request: Request, call_next):
     cid = request.headers.get(settings.correlation_id_header) or str(uuid.uuid4())
@@ -145,6 +161,25 @@ async def correlation_and_auth_middleware(request: Request, call_next):
     start = time.perf_counter()
     response = None
     try:
+        # Rate limiting (simple in-process)
+        if getattr(settings, "rate_limit_enabled", False):
+            key_mode = getattr(settings, "rate_limit_key", "ip")
+            if key_mode == "api_key":
+                rl_key = request.headers.get("x-api-key") or "anon"
+            else:
+                rl_key = request.client.host if request.client else "local"
+            limit = int(getattr(settings, "rate_limit_requests_per_minute", 60))
+            if not _rate_limit_allow(f"{key_mode}:{rl_key}", limit, 60):
+                response = JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error": "rate_limited",
+                        "retry_after_seconds": 60,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+                return response
+
         # AuthN
         if settings.api_auth_enabled and settings.api_auth_scheme == "api_key":
             api_key = request.headers.get("x-api-key")
@@ -533,6 +568,80 @@ class PromptGenerateResponse(BaseModel):
     model: str
     response: str
     timestamp: str
+
+
+# Chat models and endpoint
+class ChatMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    model: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+
+
+class ChatResponse(BaseModel):
+    success: bool
+    model: str
+    message: Dict[str, str]
+    timestamp: str
+
+
+def _build_chat_prompt(messages: list[ChatMessage]) -> str:
+    parts = []
+    for m in messages:
+        role = (m.role or "user").lower()
+        if role not in ("user", "assistant", "system"):
+            role = "user"
+        prefix = {
+            "system": "System",
+            "user": "User",
+            "assistant": "Assistant",
+        }[role]
+        parts.append(f"{prefix}: {m.content.strip()}")
+    parts.append("Assistant:")
+    return "\n\n".join(parts)
+
+
+@app.post("/prompt/chat", response_model=ChatResponse, status_code=status.HTTP_200_OK)
+async def prompt_chat_endpoint(req: ChatRequest):
+    try:
+        from src.ai_processing.response_generator import get_response_generator
+        from src.config.settings import settings as _settings
+
+        if not req.messages:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "error": "messages must be a non-empty list",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+        prompt = _build_chat_prompt(req.messages)
+        generator = get_response_generator()
+        model_used = req.model or getattr(_settings, "ollama_default_model", "codellama:7b")
+        text = await generator.generate(prompt, model=model_used, context=req.context)
+
+        return ChatResponse(
+            success=True,
+            model=model_used,
+            message={"role": "assistant", "content": text},
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"/prompt/chat error: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
 
 @app.post("/prompt/generate", response_model=PromptGenerateResponse, status_code=status.HTTP_200_OK)
