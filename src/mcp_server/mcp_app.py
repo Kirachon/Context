@@ -155,7 +155,7 @@ class MCPServer:
 
         logger.info("Registering MCP tool endpoints")
 
-        # Import and register tools
+        # Import and register essential tools for Claude Code CLI
         from src.mcp_server.tools.health import register_health_tools
         from src.mcp_server.tools.capabilities import register_capability_tools
         from src.mcp_server.tools.indexing import register_indexing_tools
@@ -166,24 +166,21 @@ class MCPServer:
             register_cross_language_tools,
         )
         from src.mcp_server.tools.query_understanding import register_query_tools
-        from src.mcp_server.tools.cache_management import (
-            register_cache_management_tools,
-        )
         from src.mcp_server.tools.indexing_optimization import (
             register_indexing_optimization_tools,
         )
-        from src.mcp_server.tools.query_optimization import (
-            register_query_optimization_tools,
-        )
-        from src.mcp_server.tools.result_presentation import (
-            register_result_presentation_tools,
-        )
         from src.mcp_server.tools.prompt_tools import register_prompt_tools
-        from src.mcp_server.tools.security_tools import register_security_tools
-        from src.mcp_server.tools.monitoring_tools import register_monitoring_tools
-        from src.mcp_server.tools.model_tools import register_model_tools
-        from src.mcp_server.tools.analytics_tools import register_analytics_tools
 
+        # Disabled for personal use - uncomment if needed:
+        # from src.mcp_server.tools.cache_management import register_cache_management_tools
+        # from src.mcp_server.tools.query_optimization import register_query_optimization_tools
+        # from src.mcp_server.tools.result_presentation import register_result_presentation_tools
+        # from src.mcp_server.tools.security_tools import register_security_tools
+        # from src.mcp_server.tools.monitoring_tools import register_monitoring_tools
+        # from src.mcp_server.tools.model_tools import register_model_tools
+        # from src.mcp_server.tools.analytics_tools import register_analytics_tools
+
+        # Register essential tools
         register_health_tools(self.mcp)
         register_capability_tools(self.mcp)
         register_indexing_tools(self.mcp)
@@ -192,15 +189,17 @@ class MCPServer:
         register_pattern_search_tools(self.mcp)
         register_cross_language_tools(self.mcp)
         register_query_tools(self.mcp)
-        register_cache_management_tools(self.mcp)
         register_indexing_optimization_tools(self.mcp)
-        register_query_optimization_tools(self.mcp)
-        register_result_presentation_tools(self.mcp)
         register_prompt_tools(self.mcp)
-        register_security_tools(self.mcp)
-        register_monitoring_tools(self.mcp)
-        register_model_tools(self.mcp)
-        register_analytics_tools(self.mcp)
+
+        # Disabled for personal use - uncomment if needed:
+        # register_cache_management_tools(self.mcp)
+        # register_query_optimization_tools(self.mcp)
+        # register_result_presentation_tools(self.mcp)
+        # register_security_tools(self.mcp)
+        # register_monitoring_tools(self.mcp)
+        # register_model_tools(self.mcp)
+        # register_analytics_tools(self.mcp)
 
         logger.info(f"Registered {len(settings.mcp_capabilities)} MCP tools")
 
