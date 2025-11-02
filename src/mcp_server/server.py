@@ -561,6 +561,7 @@ class PromptGenerateRequest(BaseModel):
     prompt: str
     model: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    stream: bool = False
 
 
 class PromptGenerateResponse(BaseModel):
@@ -580,6 +581,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     model: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    stream: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -605,11 +607,17 @@ def _build_chat_prompt(messages: list[ChatMessage]) -> str:
     return "\n\n".join(parts)
 
 
-@app.post("/prompt/chat", response_model=ChatResponse, status_code=status.HTTP_200_OK)
+@app.post("/prompt/chat")
 async def prompt_chat_endpoint(req: ChatRequest):
+    """
+    Chat endpoint with multi-turn conversation support.
+
+    Supports both streaming (SSE) and non-streaming modes via stream parameter.
+    """
     try:
-        from src.ai_processing.response_generator import get_response_generator
+        from src.ai_processing.ollama_client import get_ollama_client
         from src.config.settings import settings as _settings
+        from fastapi.responses import StreamingResponse
 
         if not req.messages:
             return JSONResponse(
@@ -622,16 +630,41 @@ async def prompt_chat_endpoint(req: ChatRequest):
             )
 
         prompt = _build_chat_prompt(req.messages)
-        generator = get_response_generator()
+        client = get_ollama_client()
         model_used = req.model or getattr(_settings, "ollama_default_model", "codellama:7b")
-        text = await generator.generate(prompt, model=model_used, context=req.context)
 
-        return ChatResponse(
-            success=True,
-            model=model_used,
-            message={"role": "assistant", "content": text},
-            timestamp=datetime.now(timezone.utc).isoformat(),
-        )
+        if req.stream:
+            # Streaming mode: return SSE
+            async def event_generator():
+                try:
+                    async for chunk in client.generate_response_stream(
+                        prompt, model=model_used, context=req.context
+                    ):
+                        yield f"data: {chunk}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    logger.error(f"Streaming error: {e}", exc_info=True)
+                    yield f"data: [ERROR: {str(e)}]\n\n"
+
+            return StreamingResponse(
+                event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+        else:
+            # Non-streaming mode: return JSON
+            text = await client.generate_response(
+                prompt, model=model_used, context=req.context, stream=False
+            )
+            return ChatResponse(
+                success=True,
+                model=model_used,
+                message={"role": "assistant", "content": text},
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            )
     except Exception as e:
         logger.error(f"/prompt/chat error: {e}", exc_info=True)
         return JSONResponse(
@@ -644,27 +677,53 @@ async def prompt_chat_endpoint(req: ChatRequest):
         )
 
 
-@app.post("/prompt/generate", response_model=PromptGenerateResponse, status_code=status.HTTP_200_OK)
+@app.post("/prompt/generate")
 async def prompt_generate_endpoint(req: PromptGenerateRequest):
     """
     Generate a response via Ollama using the existing AI processing layer.
 
-    This provides a stable REST interface for long-term use.
+    Supports both streaming (SSE) and non-streaming modes via stream parameter.
     """
     try:
-        from src.ai_processing.response_generator import get_response_generator
+        from src.ai_processing.ollama_client import get_ollama_client
         from src.config.settings import settings as _settings
+        from fastapi.responses import StreamingResponse
 
-        generator = get_response_generator()
+        client = get_ollama_client()
         model_used = req.model or getattr(_settings, "ollama_default_model", "codellama:7b")
-        text = await generator.generate(req.prompt, model=model_used, context=req.context)
 
-        return PromptGenerateResponse(
-            success=True,
-            model=model_used,
-            response=text,
-            timestamp=datetime.now(timezone.utc).isoformat(),
-        )
+        if req.stream:
+            # Streaming mode: return SSE
+            async def event_generator():
+                try:
+                    async for chunk in client.generate_response_stream(
+                        req.prompt, model=model_used, context=req.context
+                    ):
+                        yield f"data: {chunk}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    logger.error(f"Streaming error: {e}", exc_info=True)
+                    yield f"data: [ERROR: {str(e)}]\n\n"
+
+            return StreamingResponse(
+                event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+        else:
+            # Non-streaming mode: return JSON
+            text = await client.generate_response(
+                req.prompt, model=model_used, context=req.context, stream=False
+            )
+            return PromptGenerateResponse(
+                success=True,
+                model=model_used,
+                response=text,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            )
     except Exception as e:
         logger.error(f"/prompt/generate error: {e}", exc_info=True)
         return JSONResponse(
