@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     rate_limit_requests_per_minute: int = 60
     rate_limit_key: str = "ip"  # options: ip, api_key
 
+    # Conversation state (in-memory)
+    conversation_state_enabled: bool = True
+    conversation_max_conversations: int = 1000
+    conversation_max_messages_per_conversation: int = 100
+    conversation_ttl_seconds: int = 3600  # 1 hour
+
     # MCP Server configuration
     mcp_enabled: bool = True
     mcp_server_name: str = "Context"

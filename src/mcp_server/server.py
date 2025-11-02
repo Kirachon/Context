@@ -582,6 +582,7 @@ class ChatRequest(BaseModel):
     model: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
     stream: bool = False
+    conversation_id: Optional[str] = None  # If provided, use stateful conversation
 
 
 class ChatResponse(BaseModel):
@@ -613,11 +614,13 @@ async def prompt_chat_endpoint(req: ChatRequest):
     Chat endpoint with multi-turn conversation support.
 
     Supports both streaming (SSE) and non-streaming modes via stream parameter.
+    Optionally stateful via conversation_id parameter.
     """
     try:
         from src.ai_processing.ollama_client import get_ollama_client
         from src.config.settings import settings as _settings
         from fastapi.responses import StreamingResponse
+        from src.conversation import get_conversation_manager
 
         if not req.messages:
             return JSONResponse(
@@ -629,19 +632,47 @@ async def prompt_chat_endpoint(req: ChatRequest):
                 },
             )
 
-        prompt = _build_chat_prompt(req.messages)
+        # Handle conversation state if conversation_id provided and enabled
+        conversation_enabled = getattr(_settings, "conversation_state_enabled", True)
+        messages_to_use = req.messages
+
+        if req.conversation_id and conversation_enabled:
+            manager = get_conversation_manager()
+            conv = manager.get_conversation(req.conversation_id)
+            if conv:
+                # Merge stored history with new messages
+                stored_msgs = [
+                    ChatMessage(role=m.role, content=m.content) for m in conv.messages
+                ]
+                messages_to_use = stored_msgs + req.messages
+            # Store new user messages
+            for msg in req.messages:
+                if msg.role == "user":
+                    manager.add_message(req.conversation_id, msg.role, msg.content)
+
+        prompt = _build_chat_prompt(messages_to_use)
         client = get_ollama_client()
         model_used = req.model or getattr(_settings, "ollama_default_model", "codellama:7b")
 
         if req.stream:
             # Streaming mode: return SSE
+            collected_response = []
+
             async def event_generator():
                 try:
                     async for chunk in client.generate_response_stream(
                         prompt, model=model_used, context=req.context
                     ):
+                        collected_response.append(chunk)
                         yield f"data: {chunk}\n\n"
                     yield "data: [DONE]\n\n"
+
+                    # Store assistant response in conversation state if enabled
+                    if req.conversation_id and conversation_enabled:
+                        full_response = "".join(collected_response)
+                        manager.add_message(
+                            req.conversation_id, "assistant", full_response
+                        )
                 except Exception as e:
                     logger.error(f"Streaming error: {e}", exc_info=True)
                     yield f"data: [ERROR: {str(e)}]\n\n"
@@ -659,6 +690,11 @@ async def prompt_chat_endpoint(req: ChatRequest):
             text = await client.generate_response(
                 prompt, model=model_used, context=req.context, stream=False
             )
+
+            # Store assistant response in conversation state if enabled
+            if req.conversation_id and conversation_enabled:
+                manager.add_message(req.conversation_id, "assistant", text)
+
             return ChatResponse(
                 success=True,
                 model=model_used,
@@ -675,6 +711,49 @@ async def prompt_chat_endpoint(req: ChatRequest):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
+
+
+
+@app.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation_endpoint(conversation_id: str):
+    """Delete a conversation by ID."""
+    from src.conversation import get_conversation_manager
+    from src.config.settings import settings as _settings
+
+    conversation_enabled = getattr(_settings, "conversation_state_enabled", True)
+    if not conversation_enabled:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "conversation state disabled"},
+        )
+
+    manager = get_conversation_manager()
+    deleted = manager.delete_conversation(conversation_id)
+    if not deleted:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "conversation not found"},
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get("/conversations/stats")
+async def conversation_stats_endpoint():
+    """Get conversation state statistics."""
+    from src.conversation import get_conversation_manager
+    from src.config.settings import settings as _settings
+
+    conversation_enabled = getattr(_settings, "conversation_state_enabled", True)
+    if not conversation_enabled:
+        return {"enabled": False}
+
+    manager = get_conversation_manager()
+    stats = manager.get_stats()
+    return {
+        "enabled": True,
+        "total_conversations": stats["total_conversations"],
+        "total_messages": stats["total_messages"],
+    }
 
 
 @app.post("/prompt/generate")
