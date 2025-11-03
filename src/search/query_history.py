@@ -167,3 +167,31 @@ class QueryHistory:
             "average_results": avg_results,
             "high_quality_count": len(self.get_high_quality()),
         }
+
+
+# Module-level stub function for MCP tool integration
+def add_to_history(query: str, intent: str, result_count: int) -> Dict:
+    """
+    Add query to history.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        query: Query string
+        intent: Query intent
+        result_count: Number of results
+
+    Returns:
+        Dict with status and confirmation
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"QueryHistory stub called with query: {query}, intent: {intent}, result_count: {result_count}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "add_to_history is a stub implementation",
+        "query": query,
+        "intent": intent,
+        "result_count": result_count,
+        "data": {}
+    }

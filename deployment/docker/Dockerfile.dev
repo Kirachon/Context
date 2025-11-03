@@ -3,13 +3,15 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (including build tools for Tree-sitter)
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     git \
     curl \
     wget \
+    build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements files
@@ -18,7 +20,9 @@ COPY requirements/dev.txt requirements/dev.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements/dev.txt
+    pip install --no-cache-dir -r requirements/dev.txt && \
+    # Verify Tree-sitter installation
+    python3 -c "from tree_sitter_languages import get_language; langs=['python','javascript','typescript','java','cpp','go','rust']; [get_language(l) for l in langs]; print('✓ All Tree-sitter languages loaded')"
 
 # Copy application code
 COPY src/ /app/src/

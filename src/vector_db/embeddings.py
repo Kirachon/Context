@@ -20,6 +20,12 @@ import numpy as np
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
+from src.utils.retry import default_retry
+
+@default_retry()
+def _encode_sync(model, texts):
+    return model.encode(texts)
+
 
 
 class EmbeddingService:
@@ -64,7 +70,7 @@ class EmbeddingService:
     async def initialize(self):
         """Initialize the embedding model"""
         if self.model is not None:
-            logger.warning("Embedding model already initialized")
+            logger.debug("Embedding model already initialized; skipping")
             return
 
         logger.info(f"Loading embedding model: {self.model_name}")
@@ -73,9 +79,15 @@ class EmbeddingService:
             loop = asyncio.get_event_loop()
             if self.provider == "sentence-transformers":
                 # Load ST model in a thread to avoid blocking
-                self.model = await loop.run_in_executor(
-                    None, lambda: SentenceTransformer(self.model_name)
-                )
+                def _load_model():
+                    # Load model - SentenceTransformer handles device placement
+                    # Load directly to CPU by setting environment variable
+                    import os
+                    os.environ['TORCH_DEVICE'] = 'cpu'
+                    model = SentenceTransformer(self.model_name, device='cpu')
+                    return model
+
+                self.model = await loop.run_in_executor(None, _load_model)
                 test_embedding = self.model.encode(["test"])
                 self.embedding_dim = len(test_embedding[0])
             else:
@@ -182,7 +194,7 @@ class EmbeddingService:
 
             if self.provider == "sentence-transformers":
                 embedding = await loop.run_in_executor(
-                    None, lambda: self.model.encode([text])[0]
+                    None, lambda: _encode_sync(self.model, [text])[0]
                 )
             else:
                 # UniXcoder: mean pool last hidden state
@@ -262,7 +274,7 @@ class EmbeddingService:
             # Generate embeddings in thread
             loop = asyncio.get_event_loop()
             embeddings = await loop.run_in_executor(
-                None, lambda: self.model.encode(valid_texts)
+                None, lambda: _encode_sync(self.model, valid_texts)
             )
 
             # Map results back to original indices
@@ -372,11 +384,18 @@ embedding_service = EmbeddingService()
 
 async def initialize_embeddings():
     """Initialize embedding service (entry point for integration)"""
+    if embedding_service.model is not None:
+        logger.debug("Embeddings already initialized; skipping")
+        return
     await embedding_service.initialize()
 
 
 async def generate_embedding(text: str) -> Optional[List[float]]:
     """Generate embedding (entry point for integration)"""
+    # Ensure embedding service is initialized
+    if embedding_service.model is None:
+        logger.info("Embedding service not initialized, initializing now...")
+        await embedding_service.initialize()
     return await embedding_service.generate_embedding(text)
 
 
@@ -384,6 +403,10 @@ async def generate_code_embedding(
     code: str, file_path: str = "", language: str = ""
 ) -> Optional[List[float]]:
     """Generate code embedding (entry point for integration)"""
+    # Ensure embedding service is initialized
+    if embedding_service.model is None:
+        logger.info("Embedding service not initialized, initializing now...")
+        await embedding_service.initialize()
     return await embedding_service.generate_code_embedding(code, file_path, language)
 
 

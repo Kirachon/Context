@@ -1044,3 +1044,27 @@ def get_cross_language_analyzer() -> CrossLanguageAnalyzer:
     if _global_analyzer is None:
         _global_analyzer = CrossLanguageAnalyzer()
     return _global_analyzer
+
+
+# Module-level stub function for MCP tool integration
+def analyze_dependencies(directory: str) -> Dict:
+    """
+    Analyze dependencies in directory.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        directory: Directory path to analyze
+
+    Returns:
+        Dict with status and dependency analysis
+    """
+    logger.warning(f"CrossLanguageAnalyzer stub called with directory: {directory}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "analyze_dependencies is a stub implementation",
+        "directory": directory,
+        "results": [],
+        "dependencies": [],
+        "data": {}
+    }

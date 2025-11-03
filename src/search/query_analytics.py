@@ -248,3 +248,25 @@ class QueryAnalytics:
     def clear_records(self):
         """Clear all analytics records"""
         self.query_records.clear()
+
+
+# Module-level stub function for MCP tool integration
+def get_analytics() -> Dict:
+    """
+    Get query analytics.
+
+    Stub implementation for MCP tool integration.
+
+    Returns:
+        Dict with status and analytics data
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("QueryAnalytics stub called")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "get_analytics is a stub implementation",
+        "results": [],
+        "total_queries": 0,
+        "data": {}
+    }

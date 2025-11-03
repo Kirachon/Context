@@ -175,6 +175,27 @@ class Settings(BaseSettings):
             return [pattern.strip() for pattern in v.split(",") if pattern.strip()]
         return v
 
+    # Context-aware prompt settings
+    context_aware_enabled: bool = Field(
+        default=True, description="Enable context-aware prompt tools"
+    )
+    context_max_tokens: int = Field(
+        default=4000, description="Maximum tokens budget for retrieved context"
+    )
+    context_max_snippets: int = Field(
+        default=5, description="Maximum number of code snippets to include"
+    )
+    context_snippet_lines: int = Field(
+        default=20, description="Maximum lines per code snippet"
+    )
+    context_auto_search: bool = Field(
+        default=True, description="Automatically search for relevant code"
+    )
+    context_include_git: bool = Field(
+        default=True, description="Include git context in enhanced prompts"
+    )
+
+
     # Hardware requirements
     min_memory_gb: int = 8
     min_cpu_cores: int = 4

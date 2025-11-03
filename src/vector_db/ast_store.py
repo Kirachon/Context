@@ -11,7 +11,7 @@ from pathlib import Path
 
 from qdrant_client.http import models
 from src.vector_db.qdrant_client import get_qdrant_client
-from src.vector_db.embeddings import EmbeddingService
+from src.vector_db.embeddings import get_embedding_service
 from src.search.ast_models import (
     SymbolEmbeddingPayload,
     ClassEmbeddingPayload,
@@ -20,6 +20,12 @@ from src.search.ast_models import (
 from src.parsing.models import ParseResult, SymbolInfo, ClassInfo, ImportInfo
 
 logger = logging.getLogger(__name__)
+from src.utils.retry import default_retry
+
+@default_retry()
+def _qdrant_upsert(client, collection_name, points):
+    return client.upsert(collection_name=collection_name, points=points)
+
 
 
 class ASTVectorStore:
@@ -37,7 +43,8 @@ class ASTVectorStore:
         self.class_collection = f"{base_collection_name}_classes"
         self.import_collection = f"{base_collection_name}_imports"
 
-        self.embedding_service = EmbeddingService()
+        # Use singleton embedding service instance (shared across all uses)
+        self.embedding_service = get_embedding_service()
 
         self.stats = {
             "symbols_stored": 0,
@@ -54,8 +61,25 @@ class ASTVectorStore:
     async def ensure_collections(self) -> bool:
         """Ensure all AST collections exist."""
         client = get_qdrant_client()
+
+        # Auto-connect to Qdrant if not already connected
         if not client:
-            logger.error("Qdrant client not available")
+            logger.info("Qdrant client not available, attempting to connect...")
+            try:
+                from src.vector_db.qdrant_client import qdrant_client_service
+                success = await qdrant_client_service.connect()
+                if success:
+                    logger.info("Successfully connected to Qdrant")
+                    client = get_qdrant_client()
+                else:
+                    logger.error("Failed to connect to Qdrant")
+                    return False
+            except Exception as e:
+                logger.error(f"Error connecting to Qdrant: {e}", exc_info=True)
+                return False
+
+        if not client:
+            logger.error("Qdrant client still not available after connection attempt")
             return False
 
         try:
@@ -206,7 +230,7 @@ class ASTVectorStore:
 
             # Batch upsert
             if points:
-                client.upsert(collection_name=self.symbol_collection, points=points)
+                _qdrant_upsert(client, collection_name=self.symbol_collection, points=points)
                 self.stats["symbols_stored"] += len(points)
                 logger.debug(
                     f"Stored {len(points)} symbols for {parse_result.file_path}"
@@ -274,7 +298,7 @@ class ASTVectorStore:
 
             # Batch upsert
             if points:
-                client.upsert(collection_name=self.class_collection, points=points)
+                _qdrant_upsert(client, collection_name=self.class_collection, points=points)
                 self.stats["classes_stored"] += len(points)
                 logger.debug(
                     f"Stored {len(points)} classes for {parse_result.file_path}"
@@ -336,7 +360,7 @@ class ASTVectorStore:
 
             # Batch upsert
             if points:
-                client.upsert(collection_name=self.import_collection, points=points)
+                _qdrant_upsert(client, collection_name=self.import_collection, points=points)
                 self.stats["imports_stored"] += len(points)
                 logger.debug(
                     f"Stored {len(points)} imports for {parse_result.file_path}"

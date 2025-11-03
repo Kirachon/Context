@@ -34,3 +34,29 @@ def read_events(limit: int = 100):
         for line in f:
             lines.append(json.loads(line))
     return lines[-limit:]
+
+
+# Module-level stub function for MCP tool integration
+def log_audit(action: str, details: dict) -> Dict:
+    """
+    Log audit event.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        action: Action type being audited
+        details: Details about the action
+
+    Returns:
+        Dict with status and confirmation
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Audit stub called with action: {action}, details: {details}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "log_audit is a stub implementation",
+        "action": action,
+        "details": details,
+        "data": {}
+    }

@@ -55,10 +55,36 @@ def register_cross_language_tools(mcp: FastMCP):
         logger.info(f"MCP architectural analysis invoked: {directory_path}")
 
         try:
-            dir_path = Path(directory_path)
+            # Normalize path - handle both Windows absolute paths and relative paths
+            # When running in Docker, convert Windows paths to container paths
+            normalized_path = directory_path
+
+            # If it's a Windows absolute path (e.g., D:\GitProjects\Context\src)
+            if len(directory_path) > 2 and directory_path[1] == ':':
+                # Extract the relative part after the project root
+                # Assume project root is "Context" or similar
+                parts = directory_path.replace('\\', '/').split('/')
+                if 'Context' in parts:
+                    idx = parts.index('Context')
+                    # Get path relative to project root
+                    rel_parts = parts[idx+1:]
+                    if rel_parts:
+                        normalized_path = '/app/' + '/'.join(rel_parts)
+                    else:
+                        normalized_path = '/app'
+                    logger.info(f"Converted Windows path {directory_path} to container path {normalized_path}")
+                else:
+                    # Fallback: try as relative path from /app
+                    normalized_path = '/app/' + directory_path.replace('\\', '/')
+            # If it starts with ./ or is just a directory name, prepend /app
+            elif not normalized_path.startswith('/'):
+                normalized_path = '/app/' + normalized_path.lstrip('./')
+                logger.info(f"Converted relative path {directory_path} to {normalized_path}")
+
+            dir_path = Path(normalized_path)
             if not dir_path.exists() or not dir_path.is_dir():
                 return {
-                    "error": f"Directory does not exist: {directory_path}",
+                    "error": f"Directory does not exist: {directory_path} (normalized to {normalized_path})",
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 

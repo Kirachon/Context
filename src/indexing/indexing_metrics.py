@@ -288,3 +288,49 @@ def get_indexing_metrics() -> IndexingMetricsCollector:
     if _metrics_collector is None:
         _metrics_collector = IndexingMetricsCollector()
     return _metrics_collector
+
+
+# The IndexingMetrics class is provided through IndexingMetricsCollector above
+# This is a wrapper class for convenience in MCP tool integration
+class IndexingMetrics:
+    """
+    Convenience wrapper for indexing metrics.
+
+    Provides basic methods for accessing metrics data.
+    """
+
+    def __init__(self):
+        """Initialize IndexingMetrics wrapper."""
+        self.collector = get_indexing_metrics()
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get indexing statistics."""
+        return self.collector.get_statistics()
+
+    def get_batch_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent batch history."""
+        return self.collector.get_batch_history(limit)
+
+    def get_optimal_batch_size(self) -> int:
+        """Get optimal batch size."""
+        return self.collector.get_optimal_batch_size()
+
+
+# Module-level stub function for MCP tool integration
+def get_metrics() -> Dict:
+    """
+    Get indexing metrics.
+
+    Stub implementation for MCP tool integration.
+
+    Returns:
+        Dict with status and metrics data
+    """
+    logger.warning("IndexingMetrics stub called")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "get_metrics is a stub implementation",
+        "results": [],
+        "metrics": {},
+        "data": {}
+    }

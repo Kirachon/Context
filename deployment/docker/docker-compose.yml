@@ -97,6 +97,8 @@ services:
     container_name: context-server
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     volumes:
       - ../../src:/app/src
       - ../../tests:/app/tests

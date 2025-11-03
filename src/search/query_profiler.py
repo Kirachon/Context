@@ -286,3 +286,27 @@ def get_query_profiler() -> QueryProfiler:
     if _query_profiler is None:
         _query_profiler = QueryProfiler()
     return _query_profiler
+
+
+# Module-level stub function for MCP tool integration
+def profile_query(query: str) -> Dict:
+    """
+    Profile query execution.
+
+    Stub implementation for MCP tool integration.
+
+    Args:
+        query: Query string to profile
+
+    Returns:
+        Dict with status and profiling data
+    """
+    logger.warning(f"QueryProfiler stub called with query: {query}")
+    return {
+        "status": "NOT_IMPLEMENTED",
+        "message": "profile_query is a stub implementation",
+        "query": query,
+        "results": [],
+        "profiling_data": {},
+        "data": {}
+    }
