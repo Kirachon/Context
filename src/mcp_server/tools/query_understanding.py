@@ -9,7 +9,7 @@ import sys
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 from src.search.query_intent import QueryIntentClassifier
 from src.search.query_enhancement import QueryEnhancer
 from src.search.query_history import QueryHistory
+from src.mcp_server.utils.param_parsing import parse_list_param
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def register_query_tools(mcp: FastMCP):
     @mcp.tool()
     async def query_enhance(
         query: str,
-        recent_files: Optional[List[str]] = None,
+        recent_files: Optional[Union[str, List[str]]] = None,
         project_patterns: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
@@ -88,7 +89,7 @@ def register_query_tools(mcp: FastMCP):
 
         Args:
             query: Original query string
-            recent_files: Recently modified files (optional)
+            recent_files: Recently modified files (optional). Can be a JSON string or list.
             project_patterns: Detected project patterns (optional)
 
         Returns:
@@ -97,11 +98,14 @@ def register_query_tools(mcp: FastMCP):
         logger.info(f"MCP query enhancement invoked: {query[:50]}...")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            recent_files_list = parse_list_param(recent_files)
+
             intent_result = _classifier.classify(query)
             enhanced = _enhancer.enhance(
                 query,
                 intent_result,
-                recent_files=recent_files,
+                recent_files=recent_files_list,
                 project_patterns=project_patterns,
             )
 
@@ -160,7 +164,7 @@ def register_query_tools(mcp: FastMCP):
 
     @mcp.tool()
     async def query_history_add(
-        query: str, intent: str, results_count: int, tags: Optional[List[str]] = None
+        query: str, intent: str, results_count: int, tags: Optional[Union[str, List[str]]] = None
     ) -> Dict[str, Any]:
         """
         Add query to history
@@ -171,7 +175,7 @@ def register_query_tools(mcp: FastMCP):
             query: Query string
             intent: Detected intent
             results_count: Number of results returned
-            tags: Optional tags for categorization
+            tags: Optional tags for categorization. Can be a JSON string or list.
 
         Returns:
             Dict with confirmation and record details
@@ -179,7 +183,10 @@ def register_query_tools(mcp: FastMCP):
         logger.info(f"MCP history add invoked: {query[:50]}...")
 
         try:
-            record = _history.add_query(query, intent, results_count, tags)
+            # Parse list parameters (handle both JSON strings and actual lists)
+            tags_list = parse_list_param(tags)
+
+            record = _history.add_query(query, intent, results_count, tags_list)
 
             return {
                 "success": True,

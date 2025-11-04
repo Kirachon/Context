@@ -76,6 +76,17 @@ class IndexingQueue:
 
         logger.info("IndexingQueue initialized")
 
+    async def _retry_processing_after_delay(self, delay: float):
+        """
+        Retry queue processing after a delay
+
+        Args:
+            delay: Delay in seconds before retrying
+        """
+        logger.info(f"Scheduling queue processing retry in {delay} seconds...")
+        await asyncio.sleep(delay)
+        await self.process_queue()
+
     async def add(self, change_type: str, file_path: str):
         """
         Add file change to queue
@@ -121,11 +132,28 @@ class IndexingQueue:
             logger.debug("Queue processing already in progress")
             return
 
+        # Check if embedding service is ready before processing
+        from src.vector_db.embeddings import get_embedding_service
+
+        embedding_service = get_embedding_service()
+        if not embedding_service.is_initialized():
+            logger.warning(
+                "Embedding service not initialized yet. Queue processing will be retried later."
+            )
+            # Schedule retry after 5 seconds
+            asyncio.create_task(self._retry_processing_after_delay(5.0))
+            return
+
         self.processing = True
-        logger.info("Starting queue processing...")
+        initial_queue_size = len(self.queue)
+        logger.info(f"Starting queue processing... ({initial_queue_size} items in queue)")
 
         start_time = datetime.now(timezone.utc)
         _t0 = asyncio.get_event_loop().time()
+
+        # Track progress for logging
+        processed_count = 0
+        last_progress_log = 0
 
         try:
             while self.queue:
@@ -134,6 +162,15 @@ class IndexingQueue:
                 self.stats["pending_count"] = len(self.queue)
 
                 await self._process_item(item)
+                processed_count += 1
+
+                # Log progress every 10 items or at the end
+                if processed_count - last_progress_log >= 10 or len(self.queue) == 0:
+                    logger.info(
+                        f"Indexing progress: {processed_count}/{initial_queue_size} files processed "
+                        f"({self.stats['total_processed']} successful, {self.stats['total_failed']} failed)"
+                    )
+                    last_progress_log = processed_count
 
             # Calculate processing duration
             end_time = datetime.now(timezone.utc)
@@ -146,7 +183,10 @@ class IndexingQueue:
             except Exception:
                 pass
 
-            logger.info(f"Queue processing completed in {duration:.2f}s")
+            logger.info(
+                f"Queue processing completed in {duration:.2f}s: "
+                f"{self.stats['total_processed']} successful, {self.stats['total_failed']} failed"
+            )
 
         except Exception as e:
             logger.error(f"Error during queue processing: {e}", exc_info=True)

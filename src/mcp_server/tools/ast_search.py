@@ -8,7 +8,7 @@ import sys
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 from src.search.ast_search import get_ast_search_service
 from src.search.ast_models import ASTSearchRequest, SymbolType, SearchScope
 from src.indexing.ast_indexer import get_ast_indexer
+from src.mcp_server.utils.param_parsing import parse_list_param
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ def register_ast_search_tools(mcp: FastMCP):
     async def ast_semantic_search(
         query: str,
         limit: int = 10,
-        symbol_types: Optional[List[str]] = None,
-        languages: Optional[List[str]] = None,
+        symbol_types: Optional[Union[str, List[str]]] = None,
+        languages: Optional[Union[str, List[str]]] = None,
         search_scope: str = "all",
         min_score: float = 0.0,
     ) -> Dict[str, Any]:
@@ -48,8 +49,8 @@ def register_ast_search_tools(mcp: FastMCP):
         Args:
             query: Natural language search query (e.g., "async functions with error handling")
             limit: Maximum number of results to return (1-100, default: 10)
-            symbol_types: Filter by symbol types (function, method, class, interface, etc.)
-            languages: Filter by programming languages (python, javascript, etc.)
+            symbol_types: Filter by symbol types (function, method, class, interface, etc.). Can be a JSON string or list.
+            languages: Filter by programming languages (python, javascript, etc.). Can be a JSON string or list.
             search_scope: Search scope (all, symbols, classes, imports, default: all)
             min_score: Minimum similarity score (0.0-1.0, default: 0.0)
 
@@ -59,11 +60,15 @@ def register_ast_search_tools(mcp: FastMCP):
         logger.info(f"MCP AST search invoked: {query}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            symbol_types_list = parse_list_param(symbol_types)
+            languages_list = parse_list_param(languages)
+
             # Convert string symbol types to enum
             symbol_type_enums = None
-            if symbol_types:
+            if symbol_types_list:
                 symbol_type_enums = []
-                for st in symbol_types:
+                for st in symbol_types_list:
                     try:
                         symbol_type_enums.append(SymbolType(st.lower()))
                     except ValueError:
@@ -81,7 +86,7 @@ def register_ast_search_tools(mcp: FastMCP):
                 query=query,
                 limit=min(max(limit, 1), 100),
                 symbol_types=symbol_type_enums,
-                languages=languages,
+                languages=languages_list,
                 search_scope=scope_enum,
                 min_score=max(0.0, min(min_score, 1.0)),
             )
@@ -147,7 +152,7 @@ def register_ast_search_tools(mcp: FastMCP):
     async def ast_search_classes(
         query: str,
         limit: int = 10,
-        languages: Optional[List[str]] = None,
+        languages: Optional[Union[str, List[str]]] = None,
         is_abstract: Optional[bool] = None,
         has_inheritance: Optional[bool] = None,
         implements_interface: Optional[bool] = None,
@@ -161,7 +166,7 @@ def register_ast_search_tools(mcp: FastMCP):
         Args:
             query: Natural language search query
             limit: Maximum number of results (1-100, default: 10)
-            languages: Filter by programming languages
+            languages: Filter by programming languages. Can be a JSON string or list.
             is_abstract: Filter abstract classes (true/false)
             has_inheritance: Filter classes with inheritance (true/false)
             implements_interface: Filter classes implementing interfaces (true/false)
@@ -172,11 +177,14 @@ def register_ast_search_tools(mcp: FastMCP):
         logger.info(f"MCP class search invoked: {query}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            languages_list = parse_list_param(languages)
+
             # Create search request for classes only
             request = ASTSearchRequest(
                 query=query,
                 limit=min(max(limit, 1), 100),
-                languages=languages,
+                languages=languages_list,
                 search_scope=SearchScope.CLASSES,
                 is_abstract=is_abstract,
                 has_inheritance=has_inheritance,
@@ -334,7 +342,7 @@ def register_ast_search_tools(mcp: FastMCP):
     async def ast_search_functions(
         query: str,
         limit: int = 10,
-        languages: Optional[List[str]] = None,
+        languages: Optional[Union[str, List[str]]] = None,
         is_async: Optional[bool] = None,
         has_parameters: Optional[bool] = None,
         has_return_type: Optional[bool] = None,
@@ -349,7 +357,7 @@ def register_ast_search_tools(mcp: FastMCP):
         Args:
             query: Natural language search query
             limit: Maximum number of results (1-100, default: 10)
-            languages: Filter by programming languages
+            languages: Filter by programming languages. Can be a JSON string or list.
             is_async: Filter async functions (true/false)
             has_parameters: Filter functions with/without parameters (true/false)
             has_return_type: Filter functions with/without return types (true/false)
@@ -361,12 +369,15 @@ def register_ast_search_tools(mcp: FastMCP):
         logger.info(f"MCP function search invoked: {query}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            languages_list = parse_list_param(languages)
+
             # Create search request for functions only
             request = ASTSearchRequest(
                 query=query,
                 limit=min(max(limit, 1), 100),
                 symbol_types=[SymbolType.FUNCTION, SymbolType.METHOD],
-                languages=languages,
+                languages=languages_list,
                 search_scope=SearchScope.SYMBOLS,
                 is_async=is_async,
                 has_parameters=has_parameters,

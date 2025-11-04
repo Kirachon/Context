@@ -8,7 +8,7 @@ import sys
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 # Add project root to path
@@ -19,6 +19,7 @@ from src.analysis.cross_language import get_cross_language_analyzer
 from src.analysis.similarity import get_similarity_detector
 from src.parsing.parser import get_parser
 from src.parsing.models import Language
+from src.mcp_server.utils.param_parsing import parse_list_param
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def register_cross_language_tools(mcp: FastMCP):
     async def analyze_codebase_architecture(
         directory_path: str,
         recursive: bool = True,
-        languages: Optional[List[str]] = None,
+        languages: Optional[Union[str, List[str]]] = None,
     ) -> Dict[str, Any]:
         """
         Analyze codebase architecture and design patterns
@@ -47,7 +48,7 @@ def register_cross_language_tools(mcp: FastMCP):
         Args:
             directory_path: Path to directory to analyze
             recursive: Whether to analyze subdirectories (default: true)
-            languages: Filter by specific languages (optional)
+            languages: Filter by specific languages (optional). Can be a JSON string or list.
 
         Returns:
             Dict containing architectural analysis results
@@ -55,6 +56,9 @@ def register_cross_language_tools(mcp: FastMCP):
         logger.info(f"MCP architectural analysis invoked: {directory_path}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            languages_list = parse_list_param(languages)
+
             dir_path = Path(directory_path)
             if not dir_path.exists() or not dir_path.is_dir():
                 return {
@@ -161,7 +165,7 @@ def register_cross_language_tools(mcp: FastMCP):
     @mcp.tool()
     async def detect_design_patterns(
         directory_path: str,
-        pattern_types: Optional[List[str]] = None,
+        pattern_types: Optional[Union[str, List[str]]] = None,
         min_confidence: float = 0.6,
     ) -> Dict[str, Any]:
         """
@@ -172,7 +176,7 @@ def register_cross_language_tools(mcp: FastMCP):
 
         Args:
             directory_path: Path to directory to analyze
-            pattern_types: Specific pattern types to look for (optional)
+            pattern_types: Specific pattern types to look for (optional). Can be a JSON string or list.
             min_confidence: Minimum confidence score (0.0-1.0, default: 0.6)
 
         Returns:
@@ -181,6 +185,9 @@ def register_cross_language_tools(mcp: FastMCP):
         logger.info(f"MCP pattern detection invoked: {directory_path}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            pattern_types_list = parse_list_param(pattern_types)
+
             # Similar file parsing logic as above
             dir_path = Path(directory_path)
             if not dir_path.exists():

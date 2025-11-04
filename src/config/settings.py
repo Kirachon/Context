@@ -120,10 +120,19 @@ class Settings(BaseSettings):
     # Embeddings provider (feature-flagged)
     embeddings_provider: str = Field(
         default="sentence-transformers",
-        description="Embedding provider: 'sentence-transformers' (default) or 'unixcoder'",
+        description="Embedding provider: 'sentence-transformers' (default), 'google', or 'unixcoder'",
     )
     unixcoder_enabled: bool = Field(
         default=False, description="Enable UniXcoder provider behind feature flag"
+    )
+
+    # Google embeddings configuration
+    google_api_key: Optional[str] = Field(
+        default=None, description="Google API key for Gemini embeddings"
+    )
+    google_embedding_model: str = Field(
+        default="text-embedding-004",
+        description="Google embedding model (text-embedding-004 or textembedding-gecko)"
     )
 
     # File system monitoring

@@ -8,7 +8,7 @@ import sys
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 from src.search.semantic_search import search_code, get_search_stats
 from src.search.models import SearchRequest
 from src.search.filters import get_supported_file_types, get_common_exclude_patterns
+from src.mcp_server.utils.param_parsing import parse_list_param
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def register_search_tools(mcp: FastMCP):
     async def semantic_search(
         query: str,
         limit: int = 10,
-        file_types: Optional[List[str]] = None,
+        file_types: Optional[Union[str, List[str]]] = None,
         min_score: float = 0.0,
     ) -> Dict[str, Any]:
         """
@@ -45,7 +46,7 @@ def register_search_tools(mcp: FastMCP):
         Args:
             query: Natural language search query (e.g., "authentication functions")
             limit: Maximum number of results to return (1-100, default: 10)
-            file_types: Filter by file extensions (e.g., [".py", ".js"])
+            file_types: Filter by file extensions (e.g., [".py", ".js"]). Can be a JSON string or list.
             min_score: Minimum similarity score (0.0-1.0, default: 0.0)
 
         Returns:
@@ -54,9 +55,12 @@ def register_search_tools(mcp: FastMCP):
         logger.info(f"MCP tool invoked: semantic_search with query: {query}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            file_types_list = parse_list_param(file_types)
+
             # Create search request
             request = SearchRequest(
-                query=query, limit=limit, file_types=file_types, min_score=min_score
+                query=query, limit=limit, file_types=file_types_list, min_score=min_score
             )
 
             # Perform search
@@ -107,11 +111,11 @@ def register_search_tools(mcp: FastMCP):
     async def search_with_filters(
         query: str,
         limit: int = 10,
-        file_types: Optional[List[str]] = None,
-        directories: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        file_types: Optional[Union[str, List[str]]] = None,
+        directories: Optional[Union[str, List[str]]] = None,
+        exclude_patterns: Optional[Union[str, List[str]]] = None,
         min_score: float = 0.0,
-        authors: Optional[List[str]] = None,
+        authors: Optional[Union[str, List[str]]] = None,
         modified_after: Optional[str] = None,
         modified_before: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -124,10 +128,11 @@ def register_search_tools(mcp: FastMCP):
         Args:
             query: Natural language search query
             limit: Maximum number of results (1-100, default: 10)
-            file_types: Filter by file extensions (e.g., [".py", ".js"])
-            directories: Filter by directory paths (e.g., ["src", "lib"])
-            exclude_patterns: Exclude patterns (e.g., ["test", "__pycache__"])
+            file_types: Filter by file extensions (e.g., [".py", ".js"]). Can be a JSON string or list.
+            directories: Filter by directory paths (e.g., ["src", "lib"]). Can be a JSON string or list.
+            exclude_patterns: Exclude patterns (e.g., ["test", "__pycache__"]). Can be a JSON string or list.
             min_score: Minimum similarity score (0.0-1.0, default: 0.0)
+            authors: Filter by authors. Can be a JSON string or list.
 
         Returns:
             Dict containing filtered search results
@@ -135,15 +140,21 @@ def register_search_tools(mcp: FastMCP):
         logger.info(f"MCP tool invoked: search_with_filters with query: {query}")
 
         try:
+            # Parse list parameters (handle both JSON strings and actual lists)
+            file_types_list = parse_list_param(file_types)
+            directories_list = parse_list_param(directories)
+            exclude_patterns_list = parse_list_param(exclude_patterns)
+            authors_list = parse_list_param(authors)
+
             # Create search request with all filters
             request = SearchRequest(
                 query=query,
                 limit=limit,
-                file_types=file_types,
-                directories=directories,
-                exclude_patterns=exclude_patterns,
+                file_types=file_types_list,
+                directories=directories_list,
+                exclude_patterns=exclude_patterns_list,
                 min_score=min_score,
-                authors=authors,
+                authors=authors_list,
                 modified_after=modified_after,
                 modified_before=modified_before,
             )
