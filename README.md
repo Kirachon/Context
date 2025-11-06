@@ -67,11 +67,29 @@ print(f"Symbols found: {len(result.symbols)}")
 print(f"Classes found: {len(result.classes)}")
 ```
 
+## CLI Integrations
+
+Context MCP server can be integrated with multiple AI coding assistants:
+
+| CLI Tool | Platform | Setup Guide |
+|----------|----------|-------------|
+| **Codex CLI** | WSL/Linux/macOS | [docs/CODEX_CLI_SETUP.md](docs/CODEX_CLI_SETUP.md) |
+| **Claude Code CLI** | Windows/macOS | [docs/CLAUDE_CLI_SETUP.md](docs/CLAUDE_CLI_SETUP.md) |
+| **OpenCode CLI** | Cross-platform | [OPENCODE_CLI_SETUP_GUIDE.md](OPENCODE_CLI_SETUP_GUIDE.md) |
+
+**Quick Start**:
+- **Codex CLI (WSL)**: `./scripts/configure_codex_mcp.sh`
+- **Codex CLI (Windows → WSL)**: `.\scripts\configure_codex_mcp_from_windows.ps1`
+- **Claude CLI**: `.\scripts\configure_mcp_servers.ps1`
+
+**Comparison**: See [docs/MCP_CLI_COMPARISON.md](docs/MCP_CLI_COMPARISON.md) for detailed comparison of configuration formats and features.
+
 ## Documentation
 
 - [Tree-sitter Installation Guide](docs/INSTALL_TREE_SITTER.md)
 - [Architecture Documentation](docs/architecture-Context-2025-10-31.md)
 - [Technical Specifications](docs/tech-spec-Context-2025-10-31.md)
+- [Codex CLI Quick Start](docs/CODEX_CLI_QUICK_START.md)
 
 ## Testing
 

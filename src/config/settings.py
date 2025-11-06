@@ -183,6 +183,34 @@ class Settings(BaseSettings):
     min_cpu_cores: int = 4
     min_disk_space_gb: int = 10
 
+    # GPU configuration
+    gpu_enabled: bool = Field(
+        default=True,
+        description="Enable GPU acceleration if available"
+    )
+    gpu_batch_size: int = Field(
+        default=32,
+        ge=1,
+        le=256,
+        description="Batch size for GPU embedding generation"
+    )
+    cpu_batch_size: int = Field(
+        default=8,
+        ge=1,
+        le=64,
+        description="Batch size for CPU embedding generation"
+    )
+    gpu_memory_fraction: float = Field(
+        default=0.9,
+        ge=0.1,
+        le=1.0,
+        description="Fraction of GPU memory to use (0.1-1.0)"
+    )
+    embedding_show_progress: bool = Field(
+        default=False,
+        description="Show progress bar during embedding generation"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

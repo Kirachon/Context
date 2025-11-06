@@ -22,7 +22,10 @@ from src.config.settings import settings
 # Configure logging (centralized)
 from src.logging.manager import configure_logging
 
-configure_logging(level=settings.log_level, fmt=settings.log_format)
+# Check if we're running in stdio mode (MCP server)
+# If so, use stderr to avoid corrupting the JSON-RPC protocol on stdout
+is_stdio_mode = os.environ.get("MCP_ENABLED") == "true"
+configure_logging(level=settings.log_level, fmt=settings.log_format, use_stderr=is_stdio_mode)
 logger = logging.getLogger(__name__)
 
 
