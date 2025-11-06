@@ -14,7 +14,7 @@
 - 🔍 **Semantic code search**: Vector-based similarity search across your codebase
 - 🌳 **AST analysis**: Multi-language parsing for Python, JavaScript, TypeScript, Java, C++, Go, Rust
 - 🔗 **Cross-language analysis**: Detect patterns and similarities across different languages
-- 🤖 **MCP integration**: Native support for Claude Code CLI and other MCP clients
+- 🤖 **MCP integration**: Native support for Claude Code CLI via stdio transport
 - 🔒 **Privacy-first**: Runs completely offline, your code never leaves your machine
 
 ## 📊 Performance Highlights
@@ -260,18 +260,17 @@ If you see "Failed to reconnect":
 3. Verify PYTHONPATH points to project root
 4. Restart Claude Code CLI completely
 
-For detailed setup guides, see:
-- **[Claude CLI Setup](docs/CLAUDE_CLI_SETUP.md)**
-- **[Codex CLI Setup](docs/CODEX_CLI_SETUP.md)**
-- **[OpenCode CLI Setup](OPENCODE_CLI_SETUP_GUIDE.md)**
+For detailed setup guide, see:
+- **[Claude Code CLI Setup](docs/CLAUDE_CLI_SETUP.md)** - Complete configuration guide
 
 ## 🛠️ MCP Tools Available
 
-Context MCP server provides 7+ categories of tools for AI-assisted coding:
+Context MCP server provides **13 active tool categories** for AI-assisted coding:
 
 ### 1. Health & Capabilities
 - `health_check` - Check server health and service status
 - `get_capabilities` - List all available MCP tools and features
+- `server_info` - Get server metadata and version
 
 ### 2. Indexing Tools
 - `index_file` - Index a single file for search
@@ -305,6 +304,33 @@ Context MCP server provides 7+ categories of tools for AI-assisted coding:
 - `analyze_dependencies` - Analyze code dependencies
 - `detect_patterns` - Detect design patterns across languages
 - `find_similar_across_languages` - Find similar code in different languages
+
+### 8. Dependency Analysis
+- `analyze_imports` - Analyze import dependencies
+- `find_circular_dependencies` - Detect circular dependencies
+- `generate_dependency_graph` - Create dependency visualization
+
+### 9. Query Understanding
+- `classify_query` - Classify user query intent
+- `extract_query_entities` - Extract entities from queries
+- `suggest_query_refinements` - Suggest query improvements
+
+### 10. Indexing Optimization
+- `optimize_index` - Optimize vector index performance
+- `rebuild_index` - Rebuild index from scratch
+- `get_index_stats` - Get index statistics
+
+### 11. Prompt Tools
+- `enhance_prompt` - Enhance user prompts with context
+- `generate_prompt_template` - Generate prompt templates
+
+### 12. Context-Aware Prompts
+- `get_relevant_context` - Get relevant code context for prompts
+- `summarize_codebase` - Generate codebase summaries
+
+### 13. Result Presentation
+- `format_search_results` - Format search results for display
+- `generate_code_snippets` - Generate formatted code snippets
 
 ## 💡 Usage Examples
 
@@ -653,41 +679,35 @@ def register_my_tools(mcp: FastMCP):
 
 ### Setup Guides
 - **[Claude Code CLI Setup](docs/CLAUDE_CLI_SETUP.md)** - Configure for Claude Code CLI
-- **[Codex CLI Setup](docs/CODEX_CLI_SETUP.md)** - Configure for Codex CLI (WSL)
-- **[OpenCode CLI Setup](OPENCODE_CLI_SETUP_GUIDE.md)** - Configure for OpenCode CLI
 - **[Tree-sitter Installation](docs/INSTALL_TREE_SITTER.md)** - AST parser setup
 
 ### Architecture & Technical Docs
 - **[Architecture Documentation](docs/architecture-Context-2025-10-31.md)** - System architecture
 - **[Technical Specifications](docs/tech-spec-Context-2025-10-31.md)** - Technical details
-- **[MCP CLI Comparison](docs/MCP_CLI_COMPARISON.md)** - Compare different MCP clients
 
 ### Troubleshooting Guides
 - **[PostgreSQL Analysis](POSTGRESQL_ANALYSIS_AND_RECOMMENDATION.md)** - PostgreSQL setup and analysis
 - **[MCP Startup Optimization](MCP_STARTUP_OPTIMIZATION_SUMMARY.md)** - Startup performance guide
 - **[GPU Optimization](GPU_OPTIMIZATION_SUMMARY.md)** - GPU acceleration setup
 
-## 🤝 CLI Integrations
+## 🤝 MCP Client Integration
 
-Context MCP server works with multiple AI coding assistants:
+Context MCP server is designed for **Claude Code CLI** via stdio transport:
 
-| CLI Tool | Platform | Status | Setup Guide |
-|----------|----------|--------|-------------|
-| **Claude Code CLI** | Windows/macOS/Linux | ✅ Tested | [Setup Guide](docs/CLAUDE_CLI_SETUP.md) |
-| **Codex CLI** | WSL/Linux/macOS | ✅ Tested | [Setup Guide](docs/CODEX_CLI_SETUP.md) |
-| **OpenCode CLI** | Cross-platform | ✅ Tested | [Setup Guide](OPENCODE_CLI_SETUP_GUIDE.md) |
+| MCP Client | Platform | Status | Setup Guide |
+|------------|----------|--------|-------------|
+| **Claude Code CLI** | Windows/macOS/Linux | ✅ Tested & Working | [Setup Guide](docs/CLAUDE_CLI_SETUP.md) |
 
 **Quick Configuration**:
 ```bash
-# Claude Code CLI (Windows)
+# Windows PowerShell
 .\scripts\configure_mcp_servers.ps1
 
-# Codex CLI (WSL/Linux)
-./scripts/configure_codex_mcp.sh
-
-# Codex CLI (Windows → WSL)
-.\scripts\configure_codex_mcp_from_windows.ps1
+# Or manually edit: C:\Users\<username>\.claude.json
+# Add the Context MCP server configuration (see Configuration section above)
 ```
+
+**Note**: While the codebase contains experimental scripts for other MCP clients (Codex CLI), only Claude Code CLI has been tested and verified to work with the current implementation.
 
 ## 📊 Performance Benchmarks
 
