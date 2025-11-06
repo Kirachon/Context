@@ -18,14 +18,14 @@ from src.mcp_server.mcp_app import MCPServer
 from src.config.settings import settings
 from src.logging.manager import configure_logging
 
-# Configure logging early
-configure_logging(level=settings.log_level, fmt=settings.log_format)
+# Configure logging early - MUST use stderr for MCP stdio to avoid corrupting protocol
+configure_logging(level=settings.log_level, fmt=settings.log_format, use_stderr=True)
 logger = logging.getLogger(__name__)
 
 
 async def initialize_services():
     """
-    Initialize Qdrant and embedding services
+    Initialize services (all services are now lazy-loaded for fast startup)
 
     This is critical for MCP stdio server to function properly.
     The FastAPI server initializes these in its lifespan handler,
@@ -37,24 +37,13 @@ async def initialize_services():
     logger.info("Initializing vector database services...")
 
     try:
-        # Import services
-        from src.vector_db.qdrant_client import connect_qdrant
-        from src.vector_db.embeddings import initialize_embeddings
+        # NOTE: Both Qdrant and Embeddings are now lazy-loaded on first use
+        # This prevents Claude Code CLI from timing out during initialization
+        # Services will be initialized automatically when first accessed
+        logger.info("✅ Qdrant connection will be established on first use (lazy loading)")
+        logger.info("✅ Embedding service will be initialized on first use (lazy loading)")
 
-        # Connect to Qdrant
-        logger.info("Connecting to Qdrant...")
-        qdrant_connected = await connect_qdrant()
-        if qdrant_connected:
-            logger.info("✅ Qdrant connection initialized successfully")
-        else:
-            logger.warning("⚠️  Qdrant connection failed, some features may not work")
-
-        # Initialize embeddings (this takes ~12 seconds)
-        logger.info("Loading embedding model (this may take 10-15 seconds)...")
-        await initialize_embeddings()
-        logger.info("✅ Embedding service initialized successfully")
-
-        logger.info("All services initialized successfully")
+        logger.info("All services initialized successfully (lazy loading enabled)")
         return True
 
     except Exception as e:
@@ -66,44 +55,61 @@ async def initialize_services():
 def main():
     logger.info("Starting FULL STDIO MCP server (all tools)...")
 
-    # Create event loop for service initialization
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # Redirect stdout to stderr during initialization to prevent pollution
+    # This prevents tqdm progress bars and other output from corrupting MCP protocol
+    original_stdout = sys.stdout
+    sys.stdout = sys.stderr
 
-    # Initialize services BEFORE creating MCP server
-    logger.info("Initializing services (this may take 15-20 seconds)...")
     try:
-        success = loop.run_until_complete(initialize_services())
-        if not success:
-            logger.warning("Service initialization incomplete, continuing anyway...")
-    except Exception as e:
-        logger.error(f"Service initialization failed: {e}", exc_info=True)
-        logger.warning("Continuing without full service initialization...")
+        # Create event loop for service initialization
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-    # Create MCP server and FastMCP instance
-    logger.info("Creating MCP server instance...")
-    server = MCPServer()
-    mcp = server.create_server()
+        # Initialize services BEFORE creating MCP server (fast startup - embeddings lazy-loaded)
+        logger.info("Initializing services...")
+        try:
+            success = loop.run_until_complete(initialize_services())
+            if not success:
+                logger.warning("Service initialization incomplete, continuing anyway...")
+        except Exception as e:
+            logger.error(f"Service initialization failed: {e}", exc_info=True)
+            logger.warning("Continuing without full service initialization...")
 
-    # Register ALL tools (context-aware, indexing, search, etc.)
-    logger.info("Registering MCP tools...")
-    server.register_tools()
+        # Use the GLOBAL MCP server instance so health checks work correctly
+        logger.info("Using global MCP server instance...")
+        from src.mcp_server.mcp_app import mcp_server
 
-    # Mark as running/listening for status reporting
-    server.is_running = True
-    server.connection_state = "listening"
+        mcp = mcp_server.create_server()
 
-    logger.info("MCP server ready and listening for connections")
+        # Register ALL tools (context-aware, indexing, search, etc.)
+        logger.info("Registering MCP tools...")
+        mcp_server.register_tools()
+
+        # Mark as running/listening for status reporting
+        mcp_server.is_running = True
+        mcp_server.connection_state = "listening"
+
+        logger.info("MCP server ready and listening for connections")
+
+    finally:
+        # Restore stdout for MCP protocol communication
+        sys.stdout = original_stdout
 
     try:
         logger.info("Starting FastMCP stdio transport...")
         # FastMCP's run() method manages its own event loop via anyio
         # It should be called directly, not awaited
+        # Disable banner to avoid polluting stdout (MCP protocol channel)
+        os.environ["FASTMCP_NO_BANNER"] = "1"
         mcp.run()
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
+        mcp_server.is_running = False
+        mcp_server.connection_state = "disconnected"
     except Exception:
         logger.exception("Unhandled error in stdio MCP server")
+        mcp_server.is_running = False
+        mcp_server.connection_state = "error"
         raise
     finally:
         # MCP server manages its own lifecycle when running in stdio mode

@@ -33,11 +33,25 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload)
 
 
-def configure_logging(level: str = "INFO", fmt: str = "json"):
+def configure_logging(level: str = "INFO", fmt: str = "json", use_stderr: bool = False):
+    """
+    Configure logging for the application.
+
+    Args:
+        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        fmt: Format type ("json" or "text")
+        use_stderr: If True, log to stderr instead of stdout.
+                   This is REQUIRED for MCP stdio servers to avoid
+                   corrupting the JSON-RPC protocol on stdout.
+    """
     lvl = getattr(logging, level.upper(), logging.INFO)
     logging.root.handlers.clear()
     logging.root.setLevel(lvl)
-    handler = logging.StreamHandler(sys.stdout)
+
+    # Use stderr for MCP stdio servers to avoid corrupting protocol messages
+    stream = sys.stderr if use_stderr else sys.stdout
+    handler = logging.StreamHandler(stream)
+
     if fmt.lower() == "json":
         handler.setFormatter(JsonFormatter())
     else:
