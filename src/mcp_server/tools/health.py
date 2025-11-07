@@ -116,6 +116,41 @@ def register_health_tools(mcp: FastMCP):
             logger.error(f"Error getting server info: {e}", exc_info=True)
             return {"error": str(e), "timestamp": datetime.now(timezone.utc).isoformat()}
 
+    @mcp.tool()
+    async def check_qdrant_status() -> Dict[str, Any]:
+        """
+        Check Qdrant vector database connection status
+
+        Returns detailed information about Qdrant connectivity including:
+        - Connection status (connected/disconnected)
+        - Host and port configuration
+        - Health check results
+        - Collection count (if connected)
+        - Connection attempts and retries
+
+        Use this tool to diagnose vector search issues.
+
+        Returns:
+            Dict containing Qdrant status information
+        """
+        logger.info("MCP tool invoked: check_qdrant_status")
+
+        try:
+            from src.vector_db.qdrant_client import get_qdrant_status
+
+            status = await get_qdrant_status()
+
+            logger.debug(f"Qdrant status: {status}")
+            return status
+
+        except Exception as e:
+            logger.error(f"Error checking Qdrant status: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
     logger.info("Health check tools registered successfully")
 
 
@@ -144,10 +179,15 @@ async def _check_services() -> Dict[str, bool]:
         logger.warning(f"Redis check failed: {e}")
         services["redis"] = False
 
-    # Check Qdrant
+    # Check Qdrant - verify actual connection status
     try:
-        qdrant_env = os.environ.get("QDRANT_HOST", "")
-        services["qdrant"] = bool(qdrant_env)
+        from src.vector_db.qdrant_client import qdrant_client_service
+
+        # Check if Qdrant is actually connected (not just configured)
+        services["qdrant"] = qdrant_client_service.is_connected
+
+        if not services["qdrant"]:
+            logger.warning("Qdrant is configured but not connected")
     except Exception as e:
         logger.warning(f"Qdrant check failed: {e}")
         services["qdrant"] = False

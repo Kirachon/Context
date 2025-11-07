@@ -25,35 +25,81 @@ logger = logging.getLogger(__name__)
 
 async def initialize_services():
     """
-    Initialize services (all services are now lazy-loaded for fast startup)
+    Initialize critical services during MCP server startup
 
-    This is critical for MCP stdio server to function properly.
-    The FastAPI server initializes these in its lifespan handler,
-    but the stdio server needs explicit initialization.
+    Strategy:
+    - Qdrant: Initialize now (fast, ~0.5s) - just TCP connection
+    - Embeddings: Lazy-load on first use (slow, ~30s) - model loading + GPU init
+    - Collection: Validate dimensions match embedding model
+
+    This ensures:
+    - Fast startup (<2 seconds)
+    - Qdrant ready immediately for vector search tools
+    - No 30+ second delay from embedding model loading
+    - No dimension mismatch errors during search
 
     Returns:
-        bool: True if initialization successful
+        bool: True if Qdrant initialization successful
     """
     logger.info("Initializing vector database services...")
 
     try:
-        # NOTE: Both Qdrant and Embeddings are now lazy-loaded on first use
-        # This prevents Claude Code CLI from timing out during initialization
-        # Services will be initialized automatically when first accessed
-        logger.info("✅ Qdrant connection will be established on first use (lazy loading)")
-        logger.info("✅ Embedding service will be initialized on first use (lazy loading)")
+        # Initialize Qdrant connection (fast - just TCP connection to port 6333)
+        logger.info("Connecting to Qdrant vector database...")
+        from src.vector_db.qdrant_client import connect_qdrant
 
-        logger.info("All services initialized successfully (lazy loading enabled)")
-        return True
+        qdrant_connected = await connect_qdrant()
+
+        if qdrant_connected:
+            logger.info("✅ Qdrant connected successfully - vector search tools ready")
+
+            # Validate/fix collection dimensions to match embedding model
+            logger.info("Validating vector collection dimensions...")
+            from src.vector_db.vector_store import vector_store
+            from src.config.settings import settings
+
+            # Use the configured vector size (default: 384 for all-MiniLM-L6-v2)
+            vector_size = settings.qdrant_vector_size
+
+            # Ensure collection exists with correct dimensions
+            # This will auto-fix dimension mismatches by recreating the collection
+            collection_ready = await vector_store.ensure_collection(
+                vector_size=vector_size,
+                auto_fix_mismatch=True
+            )
+
+            if collection_ready:
+                logger.info(f"✅ Vector collection ready with {vector_size} dimensions")
+            else:
+                logger.warning("⚠️ Vector collection validation failed")
+                logger.warning("   Vector search may not work correctly")
+        else:
+            logger.warning("⚠️ Qdrant connection failed - vector search tools may not work")
+            logger.warning("   Make sure Qdrant is running: docker-compose up -d qdrant")
+            logger.warning("   Or check connection at http://localhost:6333")
+
+        # Embeddings remain lazy-loaded (slow - model loading + GPU init ~30s)
+        # They will initialize automatically on first use
+        logger.info("✅ Embedding service will initialize on first use (lazy loading)")
+
+        logger.info("Service initialization complete")
+        return qdrant_connected
 
     except Exception as e:
         logger.error(f"❌ Failed to initialize services: {e}", exc_info=True)
-        logger.warning("MCP server will start but search/vector tools may not work")
+        logger.warning("MCP server will start but vector search tools may not work")
+        logger.warning("Check that Qdrant is running on port 6333")
         return False
 
 
 def main():
     logger.info("Starting FULL STDIO MCP server (all tools)...")
+
+    # Log diagnostic information about the environment
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"CLAUDE_PROJECT_DIR: {os.environ.get('CLAUDE_PROJECT_DIR', 'NOT SET')}")
+    logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'NOT SET')}")
+    logger.info(f"Indexed paths from settings: {settings.indexed_paths}")
 
     # Redirect stdout to stderr during initialization to prevent pollution
     # This prevents tqdm progress bars and other output from corrupting MCP protocol

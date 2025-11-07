@@ -171,16 +171,30 @@ class FileIndexer:
             metadata["indexed_time"] = datetime.now(timezone.utc)
             metadata["status"] = "indexed"
 
-            # Store in database (functions imported at module level for testability)
-            existing = await get_file_metadata(file_path)
-            if existing:
-                # Update existing record
-                await update_file_metadata(file_path, metadata)
-                logger.info(f"Updated existing metadata for {file_path}")
-            else:
-                # Create new record
-                await create_file_metadata(metadata)
-                logger.info(f"Created new metadata for {file_path}")
+            # Persist metadata (optional PostgreSQL)
+            use_db = True
+            try:
+                existing = await get_file_metadata(file_path)
+            except Exception as e:
+                logger.warning(f"PostgreSQL unavailable; skipping metadata persistence for {file_path}: {e}")
+                use_db = False
+                existing = None
+
+            if use_db:
+                try:
+                    if existing:
+                        # Update existing record
+                        await update_file_metadata(file_path, metadata)
+                        logger.info(f"Updated existing metadata for {file_path}")
+                    else:
+                        # Create new record
+                        await create_file_metadata(metadata)
+                        logger.info(f"Created new metadata for {file_path}")
+                except Exception as e:
+                    logger.warning(
+                        f"PostgreSQL write failed; continuing with vector-only indexing for {file_path}: {e}"
+                    )
+                    use_db = False
 
             # Generate and store vector embedding
             try:
@@ -259,8 +273,12 @@ class FileIndexer:
         logger.info(f"Removing file from index: {file_path}")
 
         try:
-            # Remove from database (function imported at module level for testability)
-            success = await delete_file_metadata(file_path)
+            # Remove from database (optional)
+            try:
+                success = await delete_file_metadata(file_path)
+            except Exception as e:
+                logger.warning(f"PostgreSQL unavailable; skipping metadata delete for {file_path}: {e}")
+                success = True
 
             # Remove from vector database
             try:

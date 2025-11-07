@@ -4,6 +4,8 @@ Context Application Settings
 Configuration management using Pydantic Settings for environment-based configuration.
 """
 
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 from typing import List, Optional
@@ -136,8 +138,9 @@ class Settings(BaseSettings):
     )
 
     # File system monitoring
-    indexed_paths: List[str] = Field(
-        default=["./"], description="Paths to index for search"
+    indexed_paths: Optional[List[str]] = Field(
+        default=None,
+        description="Paths to index for search (defaults to CLAUDE_PROJECT_DIR or current directory)"
     )
     ignore_patterns: List[str] = Field(
         default=[".git", ".venv", "__pycache__", "node_modules", ".pytest_cache"],
@@ -146,19 +149,30 @@ class Settings(BaseSettings):
 
     @field_validator("indexed_paths", mode="before")
     @classmethod
-    def parse_indexed_paths(cls, v):
+    def parse_indexed_paths_before(cls, v):
+        # Handle string input (from environment variables or config files)
         if isinstance(v, str):
-            # Handle comma-separated string
+            # Handle JSON array format
             if v.startswith("[") and v.endswith("]"):
-                # Try to parse as JSON
                 try:
                     import json
-
                     return json.loads(v)
                 except json.JSONDecodeError:
                     pass
             # Handle comma-separated values
             return [path.strip() for path in v.split(",") if path.strip()]
+        return v
+
+    @field_validator("indexed_paths", mode="after")
+    @classmethod
+    def parse_indexed_paths_after(cls, v):
+        # If value is the default ["./"], check for CLAUDE_PROJECT_DIR
+        # This allows Claude Code CLI to override the default with the current project directory
+        if v == ["./"] or v is None:
+            claude_project_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+            if claude_project_dir:
+                return [claude_project_dir]
+            return ["./"]
         return v
 
     @field_validator("ignore_patterns", mode="before")
@@ -212,7 +226,7 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).resolve().parent.parent.parent / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
