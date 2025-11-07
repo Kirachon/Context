@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 # import torch  # Imported in __init__ only when needed
 # import numpy as np  # Imported in methods that use it
 
+import numpy as np
+
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)

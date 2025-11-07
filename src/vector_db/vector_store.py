@@ -64,15 +64,19 @@ class VectorStore:
         """
         return str(uuid.uuid5(FILE_PATH_NAMESPACE, file_path))
 
-    async def ensure_collection(self, vector_size: int = 384) -> bool:
+    async def ensure_collection(self, vector_size: int = 384, auto_fix_mismatch: bool = True) -> bool:
         """
-        Ensure collection exists, create if not
+        Ensure collection exists with correct vector dimensions
+
+        If collection exists but has wrong dimensions, it will be recreated
+        if auto_fix_mismatch is True (default).
 
         Args:
-            vector_size: Dimension of vectors
+            vector_size: Dimension of vectors (default: 384 for all-MiniLM-L6-v2)
+            auto_fix_mismatch: Automatically recreate collection if dimensions don't match
 
         Returns:
-            bool: True if collection exists or was created
+            bool: True if collection exists or was created with correct dimensions
         """
         client = get_qdrant_client()
         if not client:
@@ -85,11 +89,48 @@ class VectorStore:
             collection_names = [col.name for col in collections.collections]
 
             if self.collection_name in collection_names:
-                logger.debug(f"Collection {self.collection_name} already exists")
-                return True
+                # Collection exists - verify dimensions match
+                collection_info = client.get_collection(self.collection_name)
+                existing_dim = collection_info.config.params.vectors.size
 
-            # Create collection
-            logger.info(f"Creating collection: {self.collection_name}")
+                if existing_dim == vector_size:
+                    logger.debug(f"Collection {self.collection_name} exists with correct dimensions ({vector_size})")
+                    return True
+
+                # Dimension mismatch detected
+                logger.warning(
+                    f"⚠️ Vector dimension mismatch detected in collection '{self.collection_name}'"
+                )
+                logger.warning(f"   Expected: {vector_size} dimensions (current embedding model)")
+                logger.warning(f"   Found: {existing_dim} dimensions (existing collection)")
+
+                if not auto_fix_mismatch:
+                    logger.error(
+                        f"Collection dimension mismatch cannot be fixed automatically (auto_fix_mismatch=False)"
+                    )
+                    return False
+
+                # Get point count before deletion
+                point_count = collection_info.points_count
+
+                logger.warning(
+                    f"🔧 Auto-fixing dimension mismatch: Recreating collection '{self.collection_name}'"
+                )
+                logger.warning(
+                    f"   This will delete {point_count} existing vectors and recreate the collection"
+                )
+                logger.warning(
+                    f"   Files will need to be re-indexed to populate the collection"
+                )
+
+                # Delete old collection
+                client.delete_collection(self.collection_name)
+                logger.info(f"Deleted collection '{self.collection_name}' with {point_count} vectors")
+
+                # Fall through to create new collection with correct dimensions
+
+            # Create collection with correct dimensions
+            logger.info(f"Creating collection: {self.collection_name} (dimensions: {vector_size})")
 
             client.create_collection(
                 collection_name=self.collection_name,
@@ -98,7 +139,7 @@ class VectorStore:
                 ),
             )
 
-            logger.info(f"Collection {self.collection_name} created successfully")
+            logger.info(f"✅ Collection {self.collection_name} created successfully with {vector_size} dimensions")
             return True
 
         except Exception as e:
@@ -126,8 +167,18 @@ class VectorStore:
             return False
 
         try:
-            # Ensure collection exists
-            if not await self.ensure_collection(len(vector)):
+            # Ensure collection exists with configured dimensions
+            # DO NOT use len(vector) here - it will create collection with wrong dimensions!
+            from src.config.settings import settings
+            if not await self.ensure_collection(settings.qdrant_vector_size):
+                return False
+
+            # Validate vector dimension matches collection
+            if len(vector) != settings.qdrant_vector_size:
+                logger.error(
+                    f"Vector dimension mismatch: vector has {len(vector)} dimensions, "
+                    f"but collection expects {settings.qdrant_vector_size} dimensions"
+                )
                 return False
 
             # Generate deterministic UUID from the ID (file path)
@@ -174,15 +225,25 @@ class VectorStore:
             return True
 
         try:
-            # Ensure collection exists (use first vector's dimension)
-            first_vector = vectors[0]["vector"]
-            if not await self.ensure_collection(len(first_vector)):
+            # Ensure collection exists with configured dimensions
+            # DO NOT use len(first_vector) here - it will create collection with wrong dimensions!
+            from src.config.settings import settings
+            if not await self.ensure_collection(settings.qdrant_vector_size):
                 return False
 
             # Prepare points with UUID conversion
             points = []
             for vector_data in vectors:
                 original_id = vector_data["id"]
+                vector = vector_data["vector"]
+
+                # Validate vector dimension matches collection
+                if len(vector) != settings.qdrant_vector_size:
+                    logger.error(
+                        f"Vector dimension mismatch for {original_id}: vector has {len(vector)} dimensions, "
+                        f"but collection expects {settings.qdrant_vector_size} dimensions"
+                    )
+                    continue  # Skip this vector
 
                 # Generate deterministic UUID from the ID (file path)
                 point_id = self._generate_point_id(original_id)
@@ -194,7 +255,7 @@ class VectorStore:
 
                 point = models.PointStruct(
                     id=point_id,
-                    vector=vector_data["vector"],
+                    vector=vector,
                     payload=payload,
                 )
                 points.append(point)
