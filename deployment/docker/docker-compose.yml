@@ -102,6 +102,9 @@ services:
       - ../../tests:/app/tests
       - ../../docs:/app/docs
       - ../../requirements:/app/requirements
+      # Mount HuggingFace model cache to avoid downloading on every restart
+      # This will use the models downloaded on the host machine
+      - ${USERPROFILE}/.cache/huggingface:/root/.cache/huggingface:ro
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
@@ -122,6 +125,9 @@ services:
       - API_KEY=${API_KEY}
       - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}
       - RATE_LIMIT_REQUESTS_PER_MINUTE=${RATE_LIMIT_REQUESTS_PER_MINUTE}
+      - EMBEDDINGS_PROVIDER=${EMBEDDINGS_PROVIDER}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_EMBEDDING_MODEL=${GOOGLE_EMBEDDING_MODEL}
       - RATE_LIMIT_KEY=${RATE_LIMIT_KEY}
       - CONVERSATION_STATE_ENABLED=${CONVERSATION_STATE_ENABLED}
       - CONVERSATION_MAX_CONVERSATIONS=${CONVERSATION_MAX_CONVERSATIONS}

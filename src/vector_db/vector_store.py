@@ -7,6 +7,7 @@ Handles vector storage and retrieval operations with Qdrant.
 import logging
 import os
 import sys
+import uuid
 from typing import List, Optional, Dict, Any
 
 # Add project root to path
@@ -16,6 +17,10 @@ from qdrant_client.http import models
 from src.vector_db.qdrant_client import get_qdrant_client
 
 logger = logging.getLogger(__name__)
+
+# UUID namespace for generating deterministic UUIDs from file paths
+# This ensures the same file path always generates the same UUID
+FILE_PATH_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 
 class VectorStore:
@@ -42,6 +47,22 @@ class VectorStore:
         }
 
         logger.info(f"VectorStore initialized for collection: {collection_name}")
+
+    @staticmethod
+    def _generate_point_id(file_path: str) -> str:
+        """
+        Generate a deterministic UUID from a file path
+
+        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same file path.
+        This ensures the same file always gets the same UUID, enabling idempotent upserts.
+
+        Args:
+            file_path: File path to generate UUID from
+
+        Returns:
+            str: UUID string
+        """
+        return str(uuid.uuid5(FILE_PATH_NAMESPACE, file_path))
 
     async def ensure_collection(self, vector_size: int = 384) -> bool:
         """
@@ -92,7 +113,7 @@ class VectorStore:
         Upsert a single vector
 
         Args:
-            id: Unique identifier for the vector
+            id: Unique identifier for the vector (typically a file path)
             vector: Vector embedding
             payload: Metadata payload
 
@@ -109,14 +130,23 @@ class VectorStore:
             if not await self.ensure_collection(len(vector)):
                 return False
 
-            # Prepare point
-            point = models.PointStruct(id=id, vector=vector, payload=payload)
+            # Generate deterministic UUID from the ID (file path)
+            point_id = self._generate_point_id(id)
+
+            # Ensure the original ID (file path) is stored in the payload for retrieval
+            # This allows searching by file path even though we use UUIDs as point IDs
+            enhanced_payload = payload.copy()
+            if "file_path" not in enhanced_payload:
+                enhanced_payload["file_path"] = id
+
+            # Prepare point with UUID
+            point = models.PointStruct(id=point_id, vector=vector, payload=enhanced_payload)
 
             # Upsert point
             client.upsert(collection_name=self.collection_name, points=[point])
 
             self.stats["vectors_stored"] += 1
-            logger.debug(f"Vector upserted successfully: {id}")
+            logger.debug(f"Vector upserted successfully: {id} (UUID: {point_id})")
             return True
 
         except Exception as e:
@@ -149,13 +179,23 @@ class VectorStore:
             if not await self.ensure_collection(len(first_vector)):
                 return False
 
-            # Prepare points
+            # Prepare points with UUID conversion
             points = []
             for vector_data in vectors:
+                original_id = vector_data["id"]
+
+                # Generate deterministic UUID from the ID (file path)
+                point_id = self._generate_point_id(original_id)
+
+                # Ensure the original ID (file path) is stored in the payload
+                payload = vector_data.get("payload", {}).copy()
+                if "file_path" not in payload:
+                    payload["file_path"] = original_id
+
                 point = models.PointStruct(
-                    id=vector_data["id"],
+                    id=point_id,
                     vector=vector_data["vector"],
-                    payload=vector_data.get("payload", {}),
+                    payload=payload,
                 )
                 points.append(point)
 
@@ -224,7 +264,7 @@ class VectorStore:
         Delete a vector by ID
 
         Args:
-            id: Vector ID to delete
+            id: Vector ID to delete (typically a file path)
 
         Returns:
             bool: True if successful
@@ -235,14 +275,17 @@ class VectorStore:
             return False
 
         try:
+            # Convert file path to UUID
+            point_id = self._generate_point_id(id)
+
             # Delete point
             client.delete(
                 collection_name=self.collection_name,
-                points_selector=models.PointIdsList(points=[id]),
+                points_selector=models.PointIdsList(points=[point_id]),
             )
 
             self.stats["vectors_deleted"] += 1
-            logger.debug(f"Vector deleted successfully: {id}")
+            logger.debug(f"Vector deleted successfully: {id} (UUID: {point_id})")
             return True
 
         except Exception as e:
@@ -255,7 +298,7 @@ class VectorStore:
         Delete multiple vectors by IDs
 
         Args:
-            ids: List of vector IDs to delete
+            ids: List of vector IDs to delete (typically file paths)
 
         Returns:
             bool: True if successful
@@ -270,10 +313,13 @@ class VectorStore:
             return True
 
         try:
+            # Convert file paths to UUIDs
+            point_ids = [self._generate_point_id(id) for id in ids]
+
             # Batch delete
             client.delete(
                 collection_name=self.collection_name,
-                points_selector=models.PointIdsList(points=ids),
+                points_selector=models.PointIdsList(points=point_ids),
             )
 
             self.stats["vectors_deleted"] += len(ids)

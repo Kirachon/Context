@@ -422,8 +422,8 @@ FodyWeavers.xsd
 # Environments and secrets (never commit real envs)
 .env
 .env.*
-
 !.env.example
+
 # Python caches and tooling
 .pytest_cache/
 .mypy_cache/
@@ -458,12 +458,29 @@ tmp/
 data/
 *.sql
 *.sqlite
-in-memoria.db
+*.db
 
 # Docker/runtime state (volumes, container logs)
 **/volumes/**
 **/docker-data/**
 
-
 # Backups (created by scripts)
 backups/
+*.tar.gz
+*.zip
+*.bak
+*.backup
+
+# Vector Database Storage (Qdrant)
+qdrant_storage/
+qdrant_storage;C/
+
+# Research and temporary files
+research_spike_results.json
+commitmsg.txt
+nul
+
+# Demo and test files in root (generated/temporary)
+*_demo.py
+test_*.py
+!tests/test_*.py

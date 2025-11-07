@@ -3,7 +3,7 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (cached layer - rarely changes)
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -12,19 +12,22 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements files
+# Copy ONLY requirements files first (cached layer - changes infrequently)
+# This allows Docker to cache the expensive pip install step
 COPY requirements/base.txt requirements/base.txt
 COPY requirements/dev.txt requirements/dev.txt
 
-# Install Python dependencies
+# Install Python dependencies (cached layer - only rebuilds when requirements change)
+# This is the most expensive step (~18 minutes) so we want to cache it
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements/dev.txt
 
-# Copy application code
+# Copy application code (NOT cached - changes frequently)
+# This layer will be rebuilt on every code change, but all previous layers are cached
 COPY src/ /app/src/
 COPY tests/ /app/tests/
 
-# Create non-root user for security
+# Create non-root user for security (cached layer - rarely changes)
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app
 USER app

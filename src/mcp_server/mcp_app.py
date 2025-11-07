@@ -22,7 +22,10 @@ from src.config.settings import settings
 # Configure logging (centralized)
 from src.logging.manager import configure_logging
 
-configure_logging(level=settings.log_level, fmt=settings.log_format)
+# Check if we're running in stdio mode (MCP server)
+# If so, use stderr to avoid corrupting the JSON-RPC protocol on stdout
+is_stdio_mode = os.environ.get("MCP_ENABLED") == "true"
+configure_logging(level=settings.log_level, fmt=settings.log_format, use_stderr=is_stdio_mode)
 logger = logging.getLogger(__name__)
 
 
@@ -162,14 +165,17 @@ class MCPServer:
         from src.mcp_server.tools.vector import register_vector_tools
         from src.mcp_server.tools.search import register_search_tools
         from src.mcp_server.tools.pattern_search import register_pattern_search_tools
+        from src.mcp_server.tools.ast_search import register_ast_search_tools
         from src.mcp_server.tools.cross_language_analysis import (
             register_cross_language_tools,
         )
+        from src.mcp_server.tools.dependency_analysis import register_dependency_tools
         from src.mcp_server.tools.query_understanding import register_query_tools
         from src.mcp_server.tools.indexing_optimization import (
             register_indexing_optimization_tools,
         )
         from src.mcp_server.tools.prompt_tools import register_prompt_tools
+        from src.mcp_server.tools.context_aware_prompt import register_context_aware_tools
 
         # Disabled for personal use - uncomment if needed:
         # from src.mcp_server.tools.cache_management import register_cache_management_tools
@@ -187,10 +193,13 @@ class MCPServer:
         register_vector_tools(self.mcp)
         register_search_tools(self.mcp)
         register_pattern_search_tools(self.mcp)
+        register_ast_search_tools(self.mcp)
         register_cross_language_tools(self.mcp)
+        register_dependency_tools(self.mcp)
         register_query_tools(self.mcp)
         register_indexing_optimization_tools(self.mcp)
         register_prompt_tools(self.mcp)
+        register_context_aware_tools(self.mcp)
 
         # Disabled for personal use - uncomment if needed:
         # register_cache_management_tools(self.mcp)

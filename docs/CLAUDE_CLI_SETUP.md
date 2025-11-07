@@ -40,7 +40,7 @@ Create or edit `~/.config/claude/mcp_servers.json`:
 {
   "context": {
     "command": "docker",
-    "args": ["exec", "-i", "context-server", "python", "-m", "src.mcp_server.mcp_app"],
+    "args": ["exec", "-i", "context-server", "python", "-m", "src.mcp_server.stdio_full_mcp"],
     "env": {
       "MCP_ENABLED": "true",
       "PYTHONPATH": "/app"
@@ -57,7 +57,7 @@ Create or edit `%APPDATA%\Claude\mcp_servers.json`:
 {
   "context": {
     "command": "docker",
-    "args": ["exec", "-i", "context-server", "python", "-m", "src.mcp_server.mcp_app"],
+    "args": ["exec", "-i", "context-server", "python", "-m", "src.mcp_server.stdio_full_mcp"],
     "env": {
       "MCP_ENABLED": "true",
       "PYTHONPATH": "/app"

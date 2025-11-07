@@ -163,4 +163,44 @@ def register_indexing_tools(mcp: FastMCP):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
+    @mcp.tool()
+    async def trigger_initial_indexing() -> Dict[str, Any]:
+        """
+        Manually trigger initial indexing of existing files
+
+        Scans all monitored paths and queues existing files for indexing.
+        Useful for re-indexing the codebase or recovering from indexing failures.
+
+        Returns:
+            Dict containing operation result and statistics
+        """
+        logger.info("MCP tool invoked: trigger_initial_indexing")
+
+        try:
+            from src.indexing.initial_indexer import run_initial_indexing
+            from src.indexing.queue import queue_file_change
+
+            logger.info("Starting manual initial indexing...")
+            stats = await run_initial_indexing(on_file_callback=queue_file_change)
+
+            result = {
+                "success": True,
+                "message": "Initial indexing completed",
+                "statistics": stats,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+            logger.info(
+                f"Manual initial indexing completed: {stats['queued_files']} files queued"
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"Error during initial indexing: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
     logger.info("Indexing tools registered successfully")

@@ -84,6 +84,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize vector database: {e}", exc_info=True)
 
+    # Run initial indexing of existing files
+    try:
+        from src.indexing.initial_indexer import run_initial_indexing
+
+        logger.info("Starting initial indexing of existing files...")
+        stats = await run_initial_indexing(on_file_callback=queue_file_change)
+        logger.info(
+            f"Initial indexing completed: {stats['queued_files']} files queued, "
+            f"{stats['failed_files']} failed out of {stats['total_files']} total"
+        )
+    except Exception as e:
+        logger.error(f"Failed to run initial indexing: {e}", exc_info=True)
+
     # Yield to run the application
     yield
 

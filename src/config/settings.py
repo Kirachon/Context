@@ -126,10 +126,19 @@ class Settings(BaseSettings):
     # Embeddings provider (feature-flagged)
     embeddings_provider: str = Field(
         default="sentence-transformers",
-        description="Embedding provider: 'sentence-transformers' (default) or 'unixcoder'",
+        description="Embedding provider: 'sentence-transformers' (default), 'google', or 'unixcoder'",
     )
     unixcoder_enabled: bool = Field(
         default=False, description="Enable UniXcoder provider behind feature flag"
+    )
+
+    # Google embeddings configuration
+    google_api_key: Optional[str] = Field(
+        default=None, description="Google API key for Gemini embeddings"
+    )
+    google_embedding_model: str = Field(
+        default="text-embedding-004",
+        description="Google embedding model (text-embedding-004 or textembedding-gecko)"
     )
 
     # File system monitoring
@@ -179,6 +188,34 @@ class Settings(BaseSettings):
     min_memory_gb: int = 8
     min_cpu_cores: int = 4
     min_disk_space_gb: int = 10
+
+    # GPU configuration
+    gpu_enabled: bool = Field(
+        default=True,
+        description="Enable GPU acceleration if available"
+    )
+    gpu_batch_size: int = Field(
+        default=32,
+        ge=1,
+        le=256,
+        description="Batch size for GPU embedding generation"
+    )
+    cpu_batch_size: int = Field(
+        default=8,
+        ge=1,
+        le=64,
+        description="Batch size for CPU embedding generation"
+    )
+    gpu_memory_fraction: float = Field(
+        default=0.9,
+        ge=0.1,
+        le=1.0,
+        description="Fraction of GPU memory to use (0.1-1.0)"
+    )
+    embedding_show_progress: bool = Field(
+        default=False,
+        description="Show progress bar during embedding generation"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

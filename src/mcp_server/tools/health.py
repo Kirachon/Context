@@ -152,12 +152,33 @@ async def _check_services() -> Dict[str, bool]:
         logger.warning(f"Qdrant check failed: {e}")
         services["qdrant"] = False
 
-    # Check Ollama
+    # Check Ollama - test actual connectivity
     try:
-        ollama_env = os.environ.get("OLLAMA_BASE_URL", "")
-        services["ollama"] = bool(ollama_env)
+        from src.ai_processing.ollama_client import get_ollama_client
+
+        ollama_client = get_ollama_client()
+        url = f"{ollama_client.base_url}/api/tags"
+
+        # Try to import aiohttp
+        try:
+            import aiohttp
+        except ImportError:
+            # If aiohttp not available, fall back to env var check
+            logger.warning("aiohttp not available, falling back to env var check for Ollama")
+            ollama_env = os.environ.get("OLLAMA_BASE_URL", "")
+            services["ollama"] = bool(ollama_env)
+            return services
+
+        # Test actual connectivity with 5 second timeout
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as resp:
+                resp.raise_for_status()
+                # Successfully connected to Ollama
+                services["ollama"] = True
+                logger.debug(f"Ollama health check passed: {url}")
     except Exception as e:
-        logger.warning(f"Ollama check failed: {e}")
+        logger.warning(f"Ollama health check failed: {e}")
         services["ollama"] = False
 
     return services

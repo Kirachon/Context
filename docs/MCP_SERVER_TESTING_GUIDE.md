@@ -114,9 +114,10 @@ Configure Claude Code CLI to connect to the Context MCP server:
 {
   "context": {
     "command": "docker",
-    "args": ["exec", "-i", "context-server", "python", "-m", "src.mcp_server.mcp_app"],
+    "args": ["exec", "-i", "context-server", "python", "-m", "src.mcp_server.stdio_full_mcp"],
     "env": {
-      "MCP_ENABLED": "true"
+      "MCP_ENABLED": "true",
+      "PYTHONPATH": "/app"
     }
   }
 }

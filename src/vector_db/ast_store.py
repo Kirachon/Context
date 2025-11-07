@@ -6,6 +6,7 @@ Specialized vector storage for AST metadata including symbols, classes, and impo
 
 import logging
 import hashlib
+import uuid
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -20,6 +21,9 @@ from src.search.ast_models import (
 from src.parsing.models import ParseResult, SymbolInfo, ClassInfo, ImportInfo
 
 logger = logging.getLogger(__name__)
+
+# UUID namespace for deterministic UUID generation (same as vector_store.py)
+AST_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 
 class ASTVectorStore:
@@ -479,19 +483,34 @@ class ASTVectorStore:
         return " | ".join(parts)
 
     def _generate_symbol_id(self, file_path: Path, symbol: SymbolInfo) -> str:
-        """Generate unique ID for symbol."""
+        """
+        Generate unique UUID for symbol.
+
+        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same symbol.
+        This ensures Qdrant compatibility (requires UUID or unsigned integer as point ID).
+        """
         content = f"{file_path}:{symbol.name}:{symbol.type}:{symbol.line_start}"
-        return hashlib.md5(content.encode()).hexdigest()
+        return str(uuid.uuid5(AST_NAMESPACE, content))
 
     def _generate_class_id(self, file_path: Path, class_info: ClassInfo) -> str:
-        """Generate unique ID for class."""
+        """
+        Generate unique UUID for class.
+
+        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same class.
+        This ensures Qdrant compatibility (requires UUID or unsigned integer as point ID).
+        """
         content = f"{file_path}:{class_info.name}:class:{class_info.line_start}"
-        return hashlib.md5(content.encode()).hexdigest()
+        return str(uuid.uuid5(AST_NAMESPACE, content))
 
     def _generate_import_id(self, file_path: Path, import_info: ImportInfo) -> str:
-        """Generate unique ID for import."""
+        """
+        Generate unique UUID for import.
+
+        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same import.
+        This ensures Qdrant compatibility (requires UUID or unsigned integer as point ID).
+        """
         content = f"{file_path}:{import_info.module}:{import_info.import_type}:{import_info.line or 0}"
-        return hashlib.md5(content.encode()).hexdigest()
+        return str(uuid.uuid5(AST_NAMESPACE, content))
 
     def _calculate_file_hash(self, file_path: Path) -> str:
         """Calculate hash of file content for cache invalidation."""

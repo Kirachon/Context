@@ -8,13 +8,14 @@ import sys
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
 from fastmcp import FastMCP
 from src.indexing.progressive_indexer import get_progressive_indexer, IndexingPriority
 from src.indexing.indexing_metrics import get_indexing_metrics
+from src.mcp_server.utils.param_parsing import parse_list_param
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +167,7 @@ def register_indexing_optimization_tools(mcp: FastMCP):
 
     @mcp.tool()
     async def add_indexing_tasks(
-        file_paths: List[str], priority: str = "normal"
+        file_paths: Union[str, List[str]], priority: str = "normal"
     ) -> Dict[str, Any]:
         """
         Add files to indexing queue
@@ -174,14 +175,24 @@ def register_indexing_optimization_tools(mcp: FastMCP):
         Adds one or more files to the indexing queue with specified priority.
 
         Args:
-            file_paths: List of file paths to index
+            file_paths: List of file paths to index. Can be a JSON string or list.
             priority: Priority level (critical, high, normal, low)
 
         Returns:
             Dict with task addition results
         """
+        # Parse list parameters (handle both JSON strings and actual lists)
+        file_paths_list = parse_list_param(file_paths)
+
+        if not file_paths_list:
+            return {
+                "success": False,
+                "error": "No valid file paths provided",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
         logger.info(
-            f"MCP add indexing tasks invoked: {len(file_paths)} files, priority={priority}"
+            f"MCP add indexing tasks invoked: {len(file_paths_list)} files, priority={priority}"
         )
 
         try:
@@ -196,14 +207,14 @@ def register_indexing_optimization_tools(mcp: FastMCP):
             priority_enum = priority_map.get(priority.lower(), IndexingPriority.NORMAL)
 
             indexer = get_progressive_indexer()
-            indexer.add_tasks_batch(file_paths, priority_enum)
+            indexer.add_tasks_batch(file_paths_list, priority_enum)
 
             progress = indexer.get_progress()
 
             return {
                 "success": True,
-                "message": f"Added {len(file_paths)} tasks to indexing queue",
-                "files_added": len(file_paths),
+                "message": f"Added {len(file_paths_list)} tasks to indexing queue",
+                "files_added": len(file_paths_list),
                 "priority": priority,
                 "progress": progress,
                 "timestamp": datetime.now(timezone.utc).isoformat(),

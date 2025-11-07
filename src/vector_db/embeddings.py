@@ -14,9 +14,11 @@ import asyncio
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from sentence_transformers import SentenceTransformer
-import torch
-import numpy as np
+# Defer heavy imports until needed to speed up module loading
+# from sentence_transformers import SentenceTransformer  # Imported in initialize()
+# import torch  # Imported in __init__ only when needed
+# import numpy as np  # Imported in methods that use it
+
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -40,74 +42,278 @@ class EmbeddingService:
         self.provider = (
             settings.embeddings_provider or "sentence-transformers"
         ).lower()
-        if self.provider == "unixcoder" and not settings.unixcoder_enabled:
-            logger.warning(
-                "UniXcoder provider selected but not enabled; falling back to sentence-transformers"
-            )
-            self.provider = "sentence-transformers"
 
-        self.model_name = (
-            model_name
-            if self.provider == "sentence-transformers"
-            else "microsoft/unixcoder-base"
-        )
+        # Handle provider-specific configuration
+        if self.provider == "google":
+            # Google embeddings (Gemini API)
+            self.model_name = getattr(settings, "google_embedding_model", "text-embedding-004")
+            self.embedding_dim = 768  # Default for Gemini embeddings
+        elif self.provider == "unixcoder":
+            if not settings.unixcoder_enabled:
+                logger.warning(
+                    "UniXcoder provider selected but not enabled; falling back to sentence-transformers"
+                )
+                self.provider = "sentence-transformers"
+                self.model_name = model_name
+                self.embedding_dim = 384
+            else:
+                self.model_name = "microsoft/unixcoder-base"
+                self.embedding_dim = 768
+        else:
+            # sentence-transformers (default)
+            self.model_name = model_name
+            self.embedding_dim = 384  # Default for all-MiniLM-L6-v2; will update after load
+
         self.model: Optional[Any] = None
         self.tokenizer: Optional[Any] = None  # For UniXcoder
-        self.embedding_dim = 384  # Default for all-MiniLM-L6-v2; will update after load
+        self.google_provider: Optional[Any] = None  # For Google embeddings
         self.max_chunk_length = 512
         self.cache: Dict[str, List[float]] = {}
+
+        # GPU-specific configuration from settings
+        self.gpu_batch_size = settings.gpu_batch_size
+        self.cpu_batch_size = settings.cpu_batch_size
+        self.show_progress = settings.embedding_show_progress
+        self.gpu_memory_fraction = settings.gpu_memory_fraction
+
+        # GPU device detection (automatic with CPU fallback)
+        # NOTE: We defer detailed GPU queries until model loading to speed up initialization
+        # NOTE: We also defer torch import to speed up module loading
+        self.device = None
+        self.device_name = "CPU"
+        self.gpu_available = False
+        self._gpu_initialized = False
+
+        try:
+            # Import torch only when checking for GPU
+            import torch
+
+            if settings.gpu_enabled and torch.cuda.is_available():
+                self.device = torch.device("cuda")
+                self.gpu_available = True
+                # Defer GPU name/memory queries until model loading to avoid slow CUDA init
+                logger.info("🚀 GPU available - will be initialized on first use")
+            else:
+                self.device = torch.device("cpu")
+                if not settings.gpu_enabled:
+                    logger.info("💻 GPU disabled in settings - Embeddings will use CPU")
+                else:
+                    logger.info("💻 No GPU detected - Embeddings will use CPU")
+        except Exception as e:
+            # Graceful fallback to CPU on any GPU detection error (including import errors)
+            import torch
+            self.device = torch.device("cpu")
+            logger.warning(f"⚠️  GPU detection failed ({e}), falling back to CPU")
+            self.device_name = "CPU"
+            self.gpu_available = False
 
         logger.info(
             f"EmbeddingService initialized provider={self.provider} model={self.model_name}"
         )
 
-    async def initialize(self):
-        """Initialize the embedding model"""
-        if self.model is not None:
-            logger.warning("Embedding model already initialized")
+    def is_initialized(self) -> bool:
+        """
+        Check if embedding service is initialized and ready to use
+
+        Returns:
+            bool: True if service is ready
+        """
+        return self.model is not None or self.google_provider is not None
+
+    async def initialize(self, max_retries: int = 3, retry_delay: float = 2.0):
+        """
+        Initialize the embedding model with retry logic
+
+        Args:
+            max_retries: Maximum number of initialization attempts
+            retry_delay: Delay between retries in seconds
+        """
+        if self.is_initialized():
+            logger.debug("Embedding model already initialized")
             return
 
-        logger.info(f"Loading embedding model: {self.model_name}")
+        logger.info(f"Loading embedding model: {self.model_name} (provider={self.provider})")
 
-        try:
-            loop = asyncio.get_event_loop()
-            if self.provider == "sentence-transformers":
-                # Load ST model in a thread to avoid blocking
-                self.model = await loop.run_in_executor(
-                    None, lambda: SentenceTransformer(self.model_name)
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                loop = asyncio.get_event_loop()
+
+                if self.provider == "google":
+                    # Initialize Google embeddings provider (no model download needed!)
+                    from src.vector_db.google_embeddings import GoogleEmbeddingsProvider
+
+                    google_api_key = getattr(settings, "google_api_key", None)
+                    if not google_api_key:
+                        raise ValueError(
+                            "GOOGLE_API_KEY environment variable required for Google embeddings"
+                        )
+
+                    logger.info(f"Initializing Google embeddings provider (attempt {attempt}/{max_retries})...")
+                    self.google_provider = GoogleEmbeddingsProvider(
+                        api_key=google_api_key,
+                        model=self.model_name,
+                        embedding_dim=self.embedding_dim,
+                    )
+
+                    # Test the connection with retry
+                    logger.info("Testing Google API connection...")
+                    test_embedding = await self.google_provider.generate_embedding("test")
+                    self.embedding_dim = len(test_embedding)
+                    logger.info(f"✅ Google embeddings initialized successfully (dim={self.embedding_dim})")
+
+                elif self.provider == "sentence-transformers":
+                    # Initialize GPU details now (deferred from __init__ for fast startup)
+                    self._initialize_gpu_details()
+
+                    # Load ST model in a thread to avoid blocking
+                    logger.info(
+                        f"Loading sentence-transformers model (attempt {attempt}/{max_retries}) "
+                        f"on device={self.device_name}..."
+                    )
+
+                    def _load_and_move_model():
+                        """Load model and move to GPU device"""
+                        from sentence_transformers import SentenceTransformer
+                        model = SentenceTransformer(self.model_name)
+                        # Move model to GPU if available
+                        model = model.to(self.device)
+                        return model
+
+                    self.model = await loop.run_in_executor(None, _load_and_move_model)
+                    test_embedding = self.model.encode(["test"])
+                    self.embedding_dim = len(test_embedding[0])
+
+                    logger.info(
+                        f"✅ Sentence-transformers model loaded on {self.device_name} "
+                        f"(dim={self.embedding_dim})"
+                    )
+
+                else:
+                    # Initialize GPU details now (deferred from __init__ for fast startup)
+                    self._initialize_gpu_details()
+
+                    # Load UniXcoder model/tokenizer with GPU support
+                    from transformers import AutoTokenizer, AutoModel
+
+                    logger.info(
+                        f"Loading UniXcoder model (attempt {attempt}/{max_retries}) "
+                        f"on device={self.device_name}..."
+                    )
+
+                    def _load_unixcoder():
+                        """Load UniXcoder and move to GPU device"""
+                        tok = AutoTokenizer.from_pretrained(self.model_name)
+                        mdl = AutoModel.from_pretrained(self.model_name)
+                        # Move model to GPU if available
+                        mdl = mdl.to(self.device)
+                        return tok, mdl
+
+                    self.tokenizer, self.model = await loop.run_in_executor(
+                        None, _load_unixcoder
+                    )
+                    # Infer hidden size from model config
+                    hidden = getattr(
+                        getattr(self.model, "config", None), "hidden_size", None
+                    )
+                    if hidden:
+                        self.embedding_dim = int(hidden)
+
+                    logger.info(
+                        f"✅ UniXcoder model loaded on {self.device_name} "
+                        f"(dim={self.embedding_dim})"
+                    )
+
+                logger.info(
+                    f"✅ Embedding service initialized successfully (provider={self.provider}, dim={self.embedding_dim})"
                 )
-                test_embedding = self.model.encode(["test"])
-                self.embedding_dim = len(test_embedding[0])
-            else:
-                # Load UniXcoder model/tokenizer (CPU)
-                from transformers import AutoTokenizer, AutoModel
 
-                def _load_unixcoder():
-                    tok = AutoTokenizer.from_pretrained(self.model_name)
-                    mdl = AutoModel.from_pretrained(self.model_name)
-                    return tok, mdl
+                # GPU warmup - pre-allocate memory and optimize performance
+                if self.gpu_available and self.provider != "google":
+                    await self._warmup_gpu()
 
-                self.tokenizer, self.model = await loop.run_in_executor(
-                    None, _load_unixcoder
+                return  # Success!
+
+            except Exception as e:
+                last_error = e
+                logger.error(
+                    f"❌ Failed to initialize embedding service (attempt {attempt}/{max_retries}): {e}",
+                    exc_info=(attempt == max_retries)  # Only log full traceback on last attempt
                 )
-                # Infer hidden size from model config
-                hidden = getattr(
-                    getattr(self.model, "config", None), "hidden_size", None
-                )
-                if hidden:
-                    self.embedding_dim = int(hidden)
 
-            logger.info(
-                f"Embedding model loaded successfully (dim: {self.embedding_dim})"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to load embedding model: {e}", exc_info=True)
-            raise
+                if attempt < max_retries:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(
+                        f"❌ Failed to initialize embedding service after {max_retries} attempts"
+                    )
+                    raise RuntimeError(
+                        f"Failed to initialize embedding service: {last_error}"
+                    ) from last_error
 
     def _get_cache_key(self, text: str) -> str:
         """Generate cache key for text"""
         return hashlib.md5(text.encode()).hexdigest()
+
+    def _clear_gpu_cache(self):
+        """Clear GPU cache to free memory"""
+        import torch
+        if self.gpu_available and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug("GPU cache cleared")
+
+    def _initialize_gpu_details(self):
+        """Initialize GPU details (name, memory) - deferred to avoid slow startup"""
+        if self.gpu_available and not self._gpu_initialized:
+            try:
+                import torch
+                self.device_name = torch.cuda.get_device_name(0)
+                gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+
+                # Configure GPU memory allocation
+                if self.gpu_memory_fraction < 1.0:
+                    torch.cuda.set_per_process_memory_fraction(
+                        self.gpu_memory_fraction, device=0
+                    )
+                    logger.info(
+                        f"⚙️  GPU memory limit set to {self.gpu_memory_fraction * 100:.0f}% "
+                        f"({gpu_memory_gb * self.gpu_memory_fraction:.1f}GB)"
+                    )
+
+                logger.info(
+                    f"🚀 GPU detected: {self.device_name} "
+                    f"({gpu_memory_gb:.1f}GB VRAM) - Embeddings will use GPU acceleration"
+                )
+                self._gpu_initialized = True
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to get GPU details: {e}")
+
+    async def _warmup_gpu(self):
+        """Warmup GPU with dummy embeddings to pre-allocate memory"""
+        try:
+            logger.info("🔥 Warming up GPU...")
+            warmup_texts = [
+                "GPU warmup sample text",
+                "Initialize CUDA kernels",
+                "Pre-allocate GPU memory"
+            ]
+
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.model.encode(
+                    warmup_texts,
+                    batch_size=self.gpu_batch_size,
+                    show_progress_bar=False,
+                    convert_to_tensor=False,
+                    device=str(self.device)
+                )
+            )
+
+            logger.info("✅ GPU warmup complete")
+        except Exception as e:
+            logger.warning(f"⚠️  GPU warmup failed: {e}")
 
     def chunk_text(self, text: str, max_length: int = None) -> List[str]:
         """
@@ -160,9 +366,10 @@ class EmbeddingService:
         Returns:
             List of floats representing the embedding
         """
-        if not self.model:
-            logger.error("Embedding model not initialized")
-            return None
+        # Auto-initialize if not already initialized (lazy loading)
+        if not self.model and not self.google_provider:
+            logger.info("Embedding model not initialized, initializing now...")
+            await self.initialize()
 
         if not text.strip():
             logger.warning("Empty text provided for embedding")
@@ -178,20 +385,26 @@ class EmbeddingService:
             logger.debug(
                 f"Generating embedding for text (length: {len(text)}) provider={self.provider}"
             )
-            loop = asyncio.get_event_loop()
 
-            if self.provider == "sentence-transformers":
+            if self.provider == "google":
+                # Use Google embeddings API (no local model needed!)
+                embedding = await self.google_provider.generate_embedding(text)
+            elif self.provider == "sentence-transformers":
+                loop = asyncio.get_event_loop()
                 embedding = await loop.run_in_executor(
                     None, lambda: self.model.encode([text])[0]
                 )
             else:
                 # UniXcoder: mean pool last hidden state
                 import numpy as _np
+                import torch
 
                 with torch.no_grad():
                     inputs = self.tokenizer(
                         text, return_tensors="pt", truncation=True, max_length=512
                     )
+                    # Move inputs to the same device as the model
+                    inputs = {k: v.to(self.device) for k, v in inputs.items()}
                     outputs = self.model(**inputs)
                     token_embeddings = outputs.last_hidden_state  # [1, seq, hidden]
                     mask = inputs["attention_mask"].unsqueeze(-1).float()
@@ -236,14 +449,15 @@ class EmbeddingService:
         Returns:
             List of embeddings (None for failed embeddings)
         """
-        if not self.model:
-            logger.error("Embedding model not initialized")
-            return [None] * len(texts)
+        # Auto-initialize if not already initialized (lazy loading)
+        if not self.model and not self.google_provider:
+            logger.info("Embedding model not initialized, initializing now...")
+            await self.initialize()
 
         if not texts:
             return []
 
-        logger.info(f"Generating batch embeddings for {len(texts)} texts")
+        logger.info(f"Generating batch embeddings for {len(texts)} texts provider={self.provider}")
 
         try:
             # Filter out empty texts and track indices
@@ -259,11 +473,49 @@ class EmbeddingService:
                 logger.warning("No valid texts for batch embedding")
                 return [None] * len(texts)
 
-            # Generate embeddings in thread
-            loop = asyncio.get_event_loop()
-            embeddings = await loop.run_in_executor(
-                None, lambda: self.model.encode(valid_texts)
-            )
+            # Generate embeddings based on provider
+            if self.provider == "google":
+                # Use Google embeddings API for batch generation
+                embeddings = await self.google_provider.generate_embeddings(valid_texts)
+            else:
+                # Use sentence-transformers or UniXcoder (local models)
+                # Optimize for GPU with batch_size and convert_to_tensor parameters
+                loop = asyncio.get_event_loop()
+
+                # Determine optimal batch size based on device
+                batch_size = self.gpu_batch_size if self.gpu_available else self.cpu_batch_size
+
+                # Try encoding with OOM error handling
+                max_retries = 3
+                for retry in range(max_retries):
+                    try:
+                        embeddings = await loop.run_in_executor(
+                            None,
+                            lambda: self.model.encode(
+                                valid_texts,
+                                batch_size=batch_size,
+                                show_progress_bar=self.show_progress,
+                                convert_to_tensor=False,  # Return numpy arrays for consistency
+                                device=str(self.device) if self.device else None
+                            )
+                        )
+                        break  # Success!
+
+                    except RuntimeError as e:
+                        if "out of memory" in str(e).lower() and retry < max_retries - 1:
+                            # OOM error - reduce batch size and retry
+                            batch_size = max(1, batch_size // 2)
+                            logger.warning(
+                                f"GPU OOM error, reducing batch size to {batch_size} and retrying..."
+                            )
+                            self._clear_gpu_cache()
+                            await asyncio.sleep(0.5)  # Brief pause
+                        else:
+                            raise  # Re-raise if not OOM or last retry
+
+                # Clear GPU cache after batch processing
+                if self.gpu_available:
+                    self._clear_gpu_cache()
 
             # Map results back to original indices
             results = [None] * len(texts)
@@ -350,15 +602,46 @@ class EmbeddingService:
         Get embedding service statistics
 
         Returns:
-            dict: Service statistics
+            dict: Service statistics including GPU metrics if available
         """
-        return {
+        # Check if any provider is loaded (model for local, google_provider for API)
+        is_loaded = self.model is not None or self.google_provider is not None
+
+        stats = {
+            "provider": self.provider,
             "model_name": self.model_name,
             "embedding_dim": self.embedding_dim,
             "max_chunk_length": self.max_chunk_length,
             "cache_size": len(self.cache),
-            "model_loaded": self.model is not None,
+            "model_loaded": is_loaded,
+            "device": str(self.device) if self.device else "unknown",
+            "device_name": self.device_name,
+            "gpu_available": self.gpu_available,
         }
+
+        # Add GPU-specific metrics if GPU is available
+        if self.gpu_available:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    gpu_props = torch.cuda.get_device_properties(0)
+                    memory_allocated = torch.cuda.memory_allocated(0) / (1024**3)  # GB
+                    memory_reserved = torch.cuda.memory_reserved(0) / (1024**3)  # GB
+                    memory_total = gpu_props.total_memory / (1024**3)  # GB
+
+                    stats["gpu_metrics"] = {
+                        "memory_allocated_gb": round(memory_allocated, 2),
+                        "memory_reserved_gb": round(memory_reserved, 2),
+                        "memory_total_gb": round(memory_total, 2),
+                        "memory_utilization_percent": round((memory_allocated / memory_total) * 100, 1),
+                        "batch_size": self.gpu_batch_size,
+                        "memory_fraction_limit": self.gpu_memory_fraction,
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to get GPU metrics: {e}")
+                stats["gpu_metrics"] = {"error": str(e)}
+
+        return stats
 
     def clear_cache(self):
         """Clear embedding cache"""
