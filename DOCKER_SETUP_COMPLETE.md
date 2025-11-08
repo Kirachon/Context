@@ -283,6 +283,15 @@ docker logs context-server --tail 100
 docker ps | grep qdrant
 ```
 
+### Vector dimension mismatch during AST indexing
+```
+Error: Wrong input: Vector dimension error: expected dim: 384, got 768
+```
+- Cause: Embedding provider/dimension changed (e.g., switched to Google text-embedding-004 at 768d) while existing AST collections were created at 384d.
+- Fix: The server now auto-detects a size mismatch and safely recreates the AST collections (context_symbols, context_classes, context_imports) with the correct dimension. AST data is derived from source files and will be repopulated on the next indexing run.
+- What to do: No manual action needed. Re-run AST indexing or let background indexing repopulate.
+
+
 ### Can't Connect from Claude CLI
 ```powershell
 # 1. Verify container is healthy
