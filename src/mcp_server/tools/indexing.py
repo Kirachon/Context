@@ -103,6 +103,8 @@ def register_indexing_tools(mcp: FastMCP):
                     "total_operations": total_operations,
                     "description": f"{unique_files_count} unique files indexed with {total_operations} total operations",
                 },
+                # Back-compat: expose raw FileIndexer stats under 'indexer' key for tests/clients
+                "indexer": indexer_stats,
                 # Detailed breakdown
                 "operations_by_component": {
                     "file_indexer": {

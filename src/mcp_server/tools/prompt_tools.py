@@ -28,10 +28,10 @@ def register_prompt_tools(mcp: FastMCP):
 
     @mcp.tool()
     @instrument_tool("prompt_analyze")
-    async def prompt_analyze(prompt: str) -> Dict[str, Any]:
+    async def prompt_analyze(prompt: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Analyze prompt intent and needs"""
         analyzer = get_prompt_analyzer()
-        result = analyzer.analyze(prompt)
+        result = analyzer.analyze(prompt, session_id=session_id)
         return {
             "success": True,
             "analysis": result,
@@ -41,15 +41,50 @@ def register_prompt_tools(mcp: FastMCP):
     @mcp.tool()
     @instrument_tool("prompt_enhance")
     async def prompt_enhance(
-        prompt: str, include_git_summary: bool = True
+        prompt: str,
+        include_git_summary: bool = True,
+        use_semantic_matching: bool = False,
+        use_templates: bool = False,
+        template_name: str | None = None,
     ) -> Dict[str, Any]:
-        """Enhance prompt with context signals"""
+        """Enhance prompt with context signals (optionally recommend files and templates)."""
         enhancer = get_context_enhancer()
-        extra_ctx = {}
+        extra_ctx: Dict[str, Any] = {}
         if include_git_summary:
             extra_ctx["recent_commits"] = get_recent_commits(5)
             extra_ctx["change_summary"] = summarize_changes()
-        enhanced = enhancer.enhance(prompt, extra_context=extra_ctx)
+        # Optional: semantic file recommendations (safe, lightweight)
+        recommendations = {"files": []}
+        if use_semantic_matching:
+            try:
+                from src.search.semantic_file_matcher import SemanticFileMatcher
+                from src.search.pattern_detector import detect_patterns
+
+                patterns = detect_patterns(prompt)
+                exts = [".py", ".ts", ".js", ".md"] if patterns else [".py", ".md"]
+                matcher = SemanticFileMatcher(root=".")
+                matches = matcher.match(prompt, limit=10, include_extensions=exts)
+                recommendations["files"] = [m.to_dict() for m in matches]
+            except Exception:
+                recommendations = {"files": []}
+        # Optional: template suggestions/expansion
+        templates: Dict[str, Any] = {}
+        if use_templates:
+            try:
+                from src.ai_processing.template_expander import TemplateExpander
+
+                expander = TemplateExpander()
+                if template_name:
+                    templates["expanded"] = expander.expand(template_name, {"name": template_name})
+                else:
+                    templates["available"] = list(expander.list_templates().keys())
+            except Exception:
+                templates = {}
+
+        enhanced = enhancer.enhance(
+            prompt,
+            extra_context={**extra_ctx, **{"recommendations": recommendations, "templates": templates}},
+        )
         return {
             "success": True,
             **enhanced,

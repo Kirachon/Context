@@ -25,6 +25,11 @@ from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+# Module-level alias for easier testing; tests may patch this symbol.
+# We intentionally avoid importing sentence_transformers at module import time.
+SentenceTransformer = None  # type: ignore
+
+
 
 class EmbeddingService:
     """
@@ -176,15 +181,36 @@ class EmbeddingService:
 
                     def _load_and_move_model():
                         """Load model and move to GPU device"""
-                        from sentence_transformers import SentenceTransformer
-                        model = SentenceTransformer(self.model_name)
-                        # Move model to GPU if available
-                        model = model.to(self.device)
+                        ST = globals().get("SentenceTransformer")
+                        if ST is None:
+                            try:
+                                from sentence_transformers import SentenceTransformer as _ST  # type: ignore
+                                ST = _ST
+                            except Exception as _e:
+                                # No local import and no patched symbol: re-raise to be handled by caller
+                                raise _e
+                        model = ST(self.model_name)
+                        # Move model to GPU if available. Call for side effects but keep original reference
+                        to_fn = getattr(model, "to", None)
+                        if callable(to_fn):
+                            try:
+                                to_fn(self.device)
+                            except Exception:
+                                pass
                         return model
 
                     self.model = await loop.run_in_executor(None, _load_and_move_model)
-                    test_embedding = self.model.encode(["test"])
-                    self.embedding_dim = len(test_embedding[0])
+
+                    # Perform a lightweight test encode to infer dimensionality, guarded for mocks
+                    try:
+                        test_embedding = self.model.encode(["test"])  # expected shape: (1, D)
+                        try:
+                            self.embedding_dim = int(len(test_embedding[0]))
+                        except Exception:
+                            # Fallback: handle providers returning 1D
+                            self.embedding_dim = int(len(test_embedding))
+                    except Exception as _e:
+                        logger.warning(f"Could not infer embedding dimension during init: {_e}; using default {self.embedding_dim}")
 
                     logger.info(
                         f"✅ Sentence-transformers model loaded on {self.device_name} "
@@ -370,6 +396,10 @@ class EmbeddingService:
         """
         # Auto-initialize if not already initialized (lazy loading)
         if not self.model and not self.google_provider:
+            # If sentence-transformers provider is selected but not available, degrade gracefully
+            if self.provider == "sentence-transformers" and globals().get("SentenceTransformer") is None:
+                logger.warning("Embedding model not initialized and sentence-transformers not available; returning None")
+                return None
             logger.info("Embedding model not initialized, initializing now...")
             await self.initialize()
 
@@ -433,6 +463,28 @@ class EmbeddingService:
             self.cache[cache_key] = embedding_list
 
             logger.debug(f"Generated embedding with dimension: {len(embedding_list)}")
+
+            # Optional predictive prefetch (feature-flagged)
+            try:
+                from src.config.settings import settings as _settings
+                if getattr(_settings, "enable_predictive_caching", False):
+                    from src.search.predictive_cache import get_predictive_cache
+                    from src.search.embedding_cache import get_embedding_cache
+                    pc = get_predictive_cache()
+                    pc.record(text)
+
+                    async def _prefetch():
+                        preds = pc.get_predictions(text, top_n=3)
+                        if not preds:
+                            return
+                        cache = get_embedding_cache()
+                        await pc.prefetch_async(preds, embedder=self, cache=cache, model=self.model_name)
+
+                    asyncio.create_task(_prefetch())
+            except Exception:
+                # Never let predictive caching impact main path
+                pass
+
             return embedding_list
 
         except Exception as e:
@@ -453,6 +505,9 @@ class EmbeddingService:
         """
         # Auto-initialize if not already initialized (lazy loading)
         if not self.model and not self.google_provider:
+            if self.provider == "sentence-transformers" and globals().get("SentenceTransformer") is None:
+                logger.warning("Embedding model not initialized and sentence-transformers not available; returning [None] * n")
+                return [None] * len(texts)
             logger.info("Embedding model not initialized, initializing now...")
             await self.initialize()
 

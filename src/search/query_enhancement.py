@@ -42,6 +42,8 @@ class QueryEnhancer:
         intent_result: QueryIntentResult,
         recent_files: Optional[List[str]] = None,
         project_patterns: Optional[Dict[str, Any]] = None,
+        session_context: Optional[List[str]] = None,  # NEW optional additive context
+        suggest_refinements: bool = False,  # NEW flag (non-breaking)
     ) -> EnhancedQuery:
         """
         Enhance query with relevant context
@@ -51,6 +53,8 @@ class QueryEnhancer:
             intent_result: Intent classification result
             recent_files: Recently modified files (optional)
             project_patterns: Detected project patterns (optional)
+            session_context: Optional list of prior messages or queries to include (additive)
+            suggest_refinements: When True, annotate enhanced query to indicate refinement flow
 
         Returns:
             EnhancedQuery with enhanced query and context additions
@@ -79,11 +83,21 @@ class QueryEnhancer:
                 enhanced_parts.append(f"(patterns: {pattern_context})")
                 context_additions.append(f"pattern_context: {pattern_context}")
 
+        # Add conversation/session context (last turn only to keep it concise)
+        if session_context:
+            last_turn = str(session_context[-1])[:120]
+            enhanced_parts.append(f"(context: prev='{last_turn}…')")
+            context_additions.append("session_context:last_turn")
+
         # Add intent-specific context
         intent_context = self._get_intent_context(intent_result.intent)
         if intent_context:
             enhanced_parts.append(f"({intent_context})")
             context_additions.append(f"intent_context: {intent_context}")
+
+        # Optional marker to signal refinement flow (no semantic change)
+        if suggest_refinements:
+            context_additions.append("refinement_flow:enabled")
 
         enhanced_query = " ".join(enhanced_parts)
         confidence = min(1.0, 0.7 + len(context_additions) * 0.05)

@@ -1102,6 +1102,20 @@ def register_my_tools(mcp: FastMCP):
 - **[Architecture Documentation](docs/architecture-Context-2025-10-31.md)** - System architecture
 - **[Technical Specifications](docs/tech-spec-Context-2025-10-31.md)** - Technical details
 
+
+### Feature Guides
+- [Phase 1 Features and Usage](docs/features/phase1.md)
+- [Phase 2 Features and Usage](docs/features/phase2.md)
+- [Phase 3 Features and Usage](docs/features/phase3.md)
+
+### Performance Docs
+- [Phase 1 Performance Benchmarks](docs/performance/phase1.md)
+
+### CI Workflows (Smoke/Flags)
+- Staging Compose Smoke: .github/workflows/staging_compose_smoke.yml (runs on push/PR)
+- Feature Flags Rollout Smoke: .github/workflows/staging_flags_rollout.yml (workflow_dispatch)
+- Production Smoke: .github/workflows/production_smoke.yml (workflow_dispatch, protected env)
+
 ### Troubleshooting Guides
 - **[PostgreSQL Analysis](POSTGRESQL_ANALYSIS_AND_RECOMMENDATION.md)** - PostgreSQL setup and analysis
 - **[MCP Startup Optimization](MCP_STARTUP_OPTIMIZATION_SUMMARY.md)** - Startup performance guide

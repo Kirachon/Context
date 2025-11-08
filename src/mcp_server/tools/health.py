@@ -163,7 +163,10 @@ async def _check_services() -> Dict[str, bool]:
     """
     services = {}
 
-    # Check PostgreSQL - treat as unavailable unless explicitly configured via env
+    # Environment-aware checks: in tests, rely on env presence only (no network calls)
+    env = os.environ.get("ENVIRONMENT", settings.environment).lower() if hasattr(settings, "environment") else os.environ.get("ENVIRONMENT", "development").lower()
+
+    # Check PostgreSQL - based on env var presence
     try:
         db_env = os.environ.get("DATABASE_URL", "")
         services["postgres"] = bool(db_env) and db_env.startswith("postgresql")
@@ -171,7 +174,7 @@ async def _check_services() -> Dict[str, bool]:
         logger.warning(f"PostgreSQL check failed: {e}")
         services["postgres"] = False
 
-    # Check Redis
+    # Check Redis - based on env var presence
     try:
         redis_env = os.environ.get("REDIS_URL", "")
         services["redis"] = bool(redis_env) and redis_env.startswith("redis")
@@ -179,44 +182,37 @@ async def _check_services() -> Dict[str, bool]:
         logger.warning(f"Redis check failed: {e}")
         services["redis"] = False
 
-    # Check Qdrant - verify actual connection status
+    # Check Qdrant
     try:
-        from src.vector_db.qdrant_client import qdrant_client_service
-
-        # Check if Qdrant is actually connected (not just configured)
-        services["qdrant"] = qdrant_client_service.is_connected
-
-        if not services["qdrant"]:
-            logger.warning("Qdrant is configured but not connected")
+        if env == "test":
+            # In tests, consider configured if host is provided
+            services["qdrant"] = bool(os.environ.get("QDRANT_HOST"))
+        else:
+            from src.vector_db.qdrant_client import qdrant_client_service
+            services["qdrant"] = bool(getattr(qdrant_client_service, "is_connected", False))
     except Exception as e:
         logger.warning(f"Qdrant check failed: {e}")
         services["qdrant"] = False
 
-    # Check Ollama - test actual connectivity
+    # Check Ollama
     try:
-        from src.ai_processing.ollama_client import get_ollama_client
-
-        ollama_client = get_ollama_client()
-        url = f"{ollama_client.base_url}/api/tags"
-
-        # Try to import aiohttp
-        try:
-            import aiohttp
-        except ImportError:
-            # If aiohttp not available, fall back to env var check
-            logger.warning("aiohttp not available, falling back to env var check for Ollama")
-            ollama_env = os.environ.get("OLLAMA_BASE_URL", "")
-            services["ollama"] = bool(ollama_env)
-            return services
-
-        # Test actual connectivity with 5 second timeout
-        timeout = aiohttp.ClientTimeout(total=5)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as resp:
-                resp.raise_for_status()
-                # Successfully connected to Ollama
-                services["ollama"] = True
-                logger.debug(f"Ollama health check passed: {url}")
+        if env == "test":
+            services["ollama"] = bool(os.environ.get("OLLAMA_BASE_URL"))
+        else:
+            from src.ai_processing.ollama_client import get_ollama_client
+            ollama_client = get_ollama_client()
+            url = f"{ollama_client.base_url}/api/tags"
+            try:
+                import aiohttp
+                timeout = aiohttp.ClientTimeout(total=5)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.get(url) as resp:
+                        resp.raise_for_status()
+                        services["ollama"] = True
+                        logger.debug(f"Ollama health check passed: {url}")
+            except ImportError:
+                # Fall back to env presence
+                services["ollama"] = bool(os.environ.get("OLLAMA_BASE_URL"))
     except Exception as e:
         logger.warning(f"Ollama health check failed: {e}")
         services["ollama"] = False

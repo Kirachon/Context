@@ -1,0 +1,68 @@
+name: Staging Compose Smoke Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: staging-compose-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare env for Compose (Linux runner)
+        run: |
+          echo "USERPROFILE=/home/runner" >> $GITHUB_ENV
+          echo "EXTERNAL_PROJECTS_PATH=${GITHUB_WORKSPACE}/.." >> $GITHUB_ENV
+          echo "QDRANT_HOST=localhost" >> $GITHUB_ENV
+          echo "QDRANT_PORT=6333" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379/0" >> $GITHUB_ENV
+          echo "MCP_ENABLED=true" >> $GITHUB_ENV
+          echo "LOG_LEVEL=INFO" >> $GITHUB_ENV
+
+      - name: Build context-server image (dev Dockerfile)
+        run: |
+          docker build -f deployment/docker/Dockerfile.dev -t context-server:ci .
+
+      - name: Start minimal stack (qdrant, redis, context-server)
+        run: |
+          docker compose -f deployment/docker/docker-compose.yml up -d qdrant redis
+          # Give DBs time to get healthy
+          sleep 15
+          docker compose -f deployment/docker/docker-compose.yml up -d context-server
+
+      - name: Wait for context-server health endpoint
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || true)
+            if [ "$code" = "405" ] || [ "$code" = "200" ]; then
+              echo "Server reachable"; break; fi
+            echo "Waiting for server... ($i)"; sleep 5;
+          done
+          curl -sSf http://localhost:8000/ >/dev/null || (docker compose -f deployment/docker/docker-compose.yml logs context-server && exit 1)
+
+      - name: Smoke JSON-RPC initialize
+        run: |
+          curl -sS -X POST http://localhost:8000/ \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gha-smoke","version":"1.0"}}}' | tee /tmp/init.json
+          grep -q '"jsonrpc"' /tmp/init.json
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f deployment/docker/docker-compose.yml down -v --remove-orphans
+

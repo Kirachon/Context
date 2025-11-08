@@ -1,0 +1,47 @@
+name: Production Smoke (Manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build context-server image (dev Dockerfile)
+        run: |
+          docker build -f deployment/docker/Dockerfile.dev -t context-server:ci .
+
+      - name: Start minimal stack (qdrant, redis, context-server)
+        run: |
+          docker compose -f deployment/docker/docker-compose.yml up -d qdrant redis
+          sleep 15
+          docker compose -f deployment/docker/docker-compose.yml up -d context-server
+          sleep 10
+
+      - name: Wait for context-server
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || true)
+            if [ "$code" = "405" ] || [ "$code" = "200" ]; then
+              echo "Server reachable"; break; fi
+            echo "Waiting for server... ($i)"; sleep 5;
+          done
+
+      - name: Smoke JSON-RPC initialize
+        run: |
+          curl -sS -X POST http://localhost:8000/ \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gha-prod","version":"1.0"}}}' | tee /tmp/init.json
+          grep -q '"jsonrpc"' /tmp/init.json
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f deployment/docker/docker-compose.yml down -v --remove-orphans
+

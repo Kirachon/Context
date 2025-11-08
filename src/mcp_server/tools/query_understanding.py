@@ -19,9 +19,16 @@ from src.search.query_enhancement import QueryEnhancer
 from src.search.query_history import QueryHistory
 from src.mcp_server.utils.param_parsing import parse_list_param
 
+from src.config.settings import settings
+from src.search.query_refiner import QueryRefiner
+from src.search.conversation_manager import SearchConversationManager
+
 logger = logging.getLogger(__name__)
 
 # Global instances
+_refiner = QueryRefiner()
+_conv_mgr = SearchConversationManager()
+
 _classifier = QueryIntentClassifier()
 _enhancer = QueryEnhancer()
 _history = QueryHistory(max_history=1000)
@@ -277,3 +284,77 @@ def register_query_tools(mcp: FastMCP):
                 "error": str(e),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+
+    # Optional tools: only register when feature flag is enabled to preserve
+    # backward-compatible tool counts expected by tests/clients.
+    if getattr(settings, "enable_query_refinement", False):
+
+        @mcp.tool()
+        async def query_refine(query: str, session_id: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
+            """
+            Suggest refined query variants and optionally use conversation context.
+            """
+            logger.info(f"MCP query_refine invoked: {query[:50]}...")
+            try:
+                # Gather optional session context if conversation tracking enabled
+                session_context = []
+                if session_id and getattr(settings, "enable_conversation_tracking", False):
+                    session_context = _conv_mgr.get_context(session_id, max_items=5)
+
+                intent_result = _classifier.classify(query)
+                suggestions = _refiner.suggest_refinements(
+                    query, intent_result=intent_result, session_context=session_context, top_k=top_k
+                )
+
+                # Provide an enhanced baseline as well
+                enhanced = _enhancer.enhance(
+                    query,
+                    intent_result,
+                    session_context=session_context or None,
+                    suggest_refinements=True,
+                )
+
+                return {
+                    "success": True,
+                    "query": query,
+                    "intent": intent_result.intent.value,
+                    "enhanced_query": enhanced.enhanced_query,
+                    "suggestions": suggestions,
+                    "used_session_context": bool(session_context),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            except Exception as e:
+                logger.error(f"query_refine failed: {e}", exc_info=True)
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+        @mcp.tool()
+        async def query_resolve_ambiguity(query: str) -> Dict[str, Any]:
+            """
+            Return clarifying questions to resolve ambiguity in the query.
+
+            This provides a dedicated endpoint (alias of follow-up generation)
+            for clarity in clients.
+            """
+            logger.info(f"MCP query_resolve_ambiguity invoked: {query[:50]}...")
+            try:
+                intent_result = _classifier.classify(query)
+                questions = _enhancer.get_follow_up_questions(intent_result)
+                return {
+                    "success": True,
+                    "query": query,
+                    "intent": intent_result.intent.value,
+                    "clarifying_questions": questions,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            except Exception as e:
+                logger.error(f"query_resolve_ambiguity failed: {e}", exc_info=True)
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+

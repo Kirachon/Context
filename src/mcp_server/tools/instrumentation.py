@@ -9,6 +9,8 @@ from __future__ import annotations
 import time
 from typing import Callable, Any
 from src.monitoring.metrics import metrics
+from src.config.settings import settings
+from src.monitoring.memory_tracker import MemoryTracker
 
 
 def instrument_tool(name: str):
@@ -31,10 +33,19 @@ def instrument_tool(name: str):
         # and type hints exactly. We'll use functools.wraps to ensure all metadata is preserved.
         import functools
         import inspect
+        import random
 
         @functools.wraps(fn)
         async def wrapper(*args, **kwargs):
             t0 = time.perf_counter()
+            mt: MemoryTracker | None = None
+            # Optional lightweight memory profiling (feature-flagged)
+            if settings.enable_performance_profiling and random.random() < float(settings.profiling_sample_rate):
+                try:
+                    mt = MemoryTracker()
+                    mt.start()
+                except Exception:
+                    mt = None
             try:
                 # Since FastMCP passes named arguments, we can safely forward them
                 res = await fn(*args, **kwargs)
@@ -51,6 +62,14 @@ def instrument_tool(name: str):
                 except Exception:
                     pass
                 raise
+            finally:
+                if mt is not None:
+                    try:
+                        _ = mt.stop()
+                        # We intentionally do not alter tool return payloads.
+                        # Memory stats can be exported via metrics or logs in the future.
+                    except Exception:
+                        pass
 
         # Ensure wrapper has the same signature as the original function
         wrapper.__signature__ = inspect.signature(fn)
