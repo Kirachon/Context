@@ -113,10 +113,10 @@ services:
       # Mount the project directory for indexing (read-only)
       - ../../:/app/workspace:ro
       # Mount external projects directory (configurable via EXTERNAL_PROJECTS_PATH env var)
-      # Default: parent of parent directory (e.g., D:\GitProjects if Context is at D:\GitProjects\Context)
+      # Default: parent directory of Context repo (e.g., D:\GitProjects if Context is at D:\GitProjects\Context)
       # Override in .env file: EXTERNAL_PROJECTS_PATH=C:/Users/username/projects
       # This makes paths like D:\GitProjects\Boarding_House accessible as /external/Boarding_House
-      - "${EXTERNAL_PROJECTS_PATH:-../..}:/external:ro"
+      - "${EXTERNAL_PROJECTS_PATH:-../../..}:/external:ro"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
