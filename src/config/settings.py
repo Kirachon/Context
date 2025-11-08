@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=10, ge=1, le=100)
     database_max_overflow: int = Field(default=20, ge=0, le=100)
 
+    # Optional PostgreSQL metadata store (disabled by default)
+    postgres_enabled: bool = Field(
+        default=False,
+        description="Enable PostgreSQL-backed metadata persistence. When false, the server runs in vector-only mode and will not attempt any database connections."
+    )
+
     # Redis configuration
     redis_url: str = "redis://localhost:6379/0"
     redis_max_connections: int = 50

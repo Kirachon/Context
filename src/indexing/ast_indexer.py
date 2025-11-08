@@ -34,12 +34,15 @@ class ASTIndexer:
         self.stats = {
             "files_processed": 0,
             "files_indexed": 0,
+            "unique_files_indexed": 0,
             "symbols_indexed": 0,
             "classes_indexed": 0,
             "imports_indexed": 0,
             "errors": 0,
             "total_processing_time_ms": 0.0,
         }
+
+        self.indexed_files: set = set()  # Track unique files
 
         logger.info("ASTIndexer initialized")
 
@@ -80,6 +83,13 @@ class ASTIndexer:
             if storage_success:
                 # Update statistics
                 self.stats["files_indexed"] += 1
+
+                # Track unique files
+                file_path_str = str(file_path)
+                if file_path_str not in self.indexed_files:
+                    self.indexed_files.add(file_path_str)
+                    self.stats["unique_files_indexed"] += 1
+
                 self.stats["symbols_indexed"] += len(parse_result.symbols)
                 self.stats["classes_indexed"] += len(parse_result.classes)
                 self.stats["imports_indexed"] += len(parse_result.imports)
@@ -231,6 +241,7 @@ class ASTIndexer:
         return {
             "files_processed": self.stats["files_processed"],
             "files_indexed": self.stats["files_indexed"],
+            "unique_files_indexed": self.stats["unique_files_indexed"],
             "symbols_indexed": self.stats["symbols_indexed"],
             "classes_indexed": self.stats["classes_indexed"],
             "imports_indexed": self.stats["imports_indexed"],
@@ -245,12 +256,14 @@ class ASTIndexer:
         self.stats = {
             "files_processed": 0,
             "files_indexed": 0,
+            "unique_files_indexed": 0,
             "symbols_indexed": 0,
             "classes_indexed": 0,
             "imports_indexed": 0,
             "errors": 0,
             "total_processing_time_ms": 0.0,
         }
+        self.indexed_files.clear()
 
 
 # Global AST indexer instance

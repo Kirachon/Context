@@ -57,8 +57,16 @@ class IndexingQueue:
             "pending_count": 0,
             "last_processing_time": None,
             "processing_duration": 0,
+            "unique_files_processed": 0,  # Track unique files
+            "duplicate_requests_skipped": 0,  # Track skipped duplicates
         }
         self.current_item: Optional[Dict[str, Any]] = None
+
+        # Track files currently in queue to prevent duplicates
+        self.queued_files: Dict[str, ChangeType] = {}  # file_path -> change_type
+
+        # Track unique files that have been processed
+        self.processed_files: set = set()
 
         # Metrics
         self.c_queued = metrics.counter(
@@ -89,7 +97,7 @@ class IndexingQueue:
 
     async def add(self, change_type: str, file_path: str):
         """
-        Add file change to queue
+        Add file change to queue with deduplication
 
         Args:
             change_type: Type of change (created, modified, deleted)
@@ -99,6 +107,32 @@ class IndexingQueue:
             change_type_enum = ChangeType(change_type)
         except ValueError:
             logger.error(f"Invalid change type: {change_type}")
+            return
+
+        # Check if file is already queued
+        if file_path in self.queued_files:
+            existing_change_type = self.queued_files[file_path]
+
+            # If same change type, skip duplicate
+            if existing_change_type == change_type_enum:
+                self.stats["duplicate_requests_skipped"] += 1
+                logger.debug(
+                    f"Skipping duplicate: {change_type} - {file_path} (already queued)"
+                )
+                return
+
+            # If different change type, update to the newer one
+            # (e.g., created -> modified, or modified -> deleted)
+            logger.debug(
+                f"Updating queued file: {file_path} from {existing_change_type.value} to {change_type_enum.value}"
+            )
+            # Find and update the existing item in queue
+            for item in self.queue:
+                if item["file_path"] == file_path:
+                    item["change_type"] = change_type_enum
+                    item["queued_time"] = datetime.now(timezone.utc)
+                    break
+            self.queued_files[file_path] = change_type_enum
             return
 
         item = {
@@ -111,6 +145,7 @@ class IndexingQueue:
         }
 
         self.queue.append(item)
+        self.queued_files[file_path] = change_type_enum
         self.stats["total_queued"] += 1
         self.stats["pending_count"] = len(self.queue)
         try:
@@ -210,6 +245,9 @@ class IndexingQueue:
         item["state"] = IndexingState.PROCESSING
         _t0 = asyncio.get_event_loop().time()
 
+        # Track if this is a new unique file
+        is_new_file = file_path not in self.processed_files
+
         try:
             if change_type == ChangeType.CREATED or change_type == ChangeType.MODIFIED:
                 # Index or update file
@@ -219,6 +257,12 @@ class IndexingQueue:
                     item["state"] = IndexingState.COMPLETED
                     item["metadata"] = metadata
                     self.stats["total_processed"] += 1
+
+                    # Track unique file
+                    if is_new_file:
+                        self.processed_files.add(file_path)
+                        self.stats["unique_files_processed"] += 1
+
                     try:
                         self.h_item.labels().observe(
                             asyncio.get_event_loop().time() - _t0
@@ -247,6 +291,10 @@ class IndexingQueue:
                 if success:
                     item["state"] = IndexingState.COMPLETED
                     self.stats["total_processed"] += 1
+
+                    # Remove from processed files tracking
+                    self.processed_files.discard(file_path)
+
                     try:
                         self.h_item.labels().observe(
                             asyncio.get_event_loop().time() - _t0
@@ -277,6 +325,10 @@ class IndexingQueue:
             self.stats["total_failed"] += 1
             logger.error(f"Error processing {file_path}: {e}", exc_info=True)
 
+        finally:
+            # Remove from queued files tracking after processing
+            self.queued_files.pop(file_path, None)
+
     def get_status(self) -> Dict[str, Any]:
         """
         Get queue status
@@ -300,6 +352,8 @@ class IndexingQueue:
                 "total_queued": self.stats["total_queued"],
                 "total_processed": self.stats["total_processed"],
                 "total_failed": self.stats["total_failed"],
+                "unique_files_processed": self.stats["unique_files_processed"],
+                "duplicate_requests_skipped": self.stats["duplicate_requests_skipped"],
                 "pending_count": self.stats["pending_count"],
                 "last_processing_time": (
                     self.stats["last_processing_time"].isoformat()
@@ -311,8 +365,9 @@ class IndexingQueue:
         }
 
     def clear(self):
-        """Clear the queue"""
+        """Clear the queue and tracking structures"""
         self.queue.clear()
+        self.queued_files.clear()
         self.stats["pending_count"] = 0
         logger.info("Queue cleared")
 

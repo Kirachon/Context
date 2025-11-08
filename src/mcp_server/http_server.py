@@ -107,17 +107,20 @@ async def initialize_services():
             logger.warning("   Make sure Qdrant is running: docker-compose up -d qdrant")
             logger.warning("   Or check connection at http://localhost:6333")
 
-        # 2) Initialize PostgreSQL (optional)
-        try:
-            logger.info("Initializing database (optional)...")
-            from src.indexing.models import init_db
-            init_db()
-            logger.info("✅ Database initialized (or will be skipped by indexer on failure)")
-        except Exception as db_e:
-            logger.warning(
-                "PostgreSQL unavailable or failed to initialize; proceeding in vector-only mode: %s",
-                db_e,
-            )
+        # 2) Initialize PostgreSQL (optional, disabled by default)
+        if getattr(settings, "postgres_enabled", False) and getattr(settings, "database_url", None):
+            try:
+                logger.info("Initializing PostgreSQL metadata store (optional)...")
+                from src.indexing.models import init_db
+                init_db()
+                logger.info("✅ PostgreSQL initialized; metadata persistence enabled")
+            except Exception as db_e:
+                logger.warning(
+                    "PostgreSQL unavailable or failed to initialize; proceeding in vector-only mode: %s",
+                    db_e,
+                )
+        else:
+            logger.info("PostgreSQL disabled; running in vector-only mode")
 
         # 3) Initialize embeddings explicitly so the queue can run immediately
         try:
