@@ -260,31 +260,75 @@ def register_ast_search_tools(mcp: FastMCP):
             import re
 
             # Resolve host -> container path if needed (Windows and Git Bash compatibility)
-            def _resolve_dir(p: str) -> Path:
-                # 1) Direct path as-is
+            def _resolve_dir(p: str) -> tuple[Path, str]:
+                """
+                Resolve directory path from host format to container format.
+                Returns (resolved_path, error_hint) where error_hint is empty if successful.
+                """
+                # 1) Direct path as-is (already in container)
                 direct = Path(p)
                 if direct.exists():
-                    return direct
+                    return direct, ""
 
-                # Normalize slashes
+                # Normalize slashes for consistent processing
                 p_norm = p.replace("\\", "/")
 
-                # 2) Windows drive path like D:\\foo or D:/foo -> /d/foo
-                m = re.match(r"^([A-Za-z]):/(.*)$", p_norm)
+                # Get EXTERNAL_PROJECTS_PATH from environment (the host path that's mounted at /external)
+                external_host_path = os.environ.get("EXTERNAL_PROJECTS_PATH", "")
+                if external_host_path:
+                    external_host_path = external_host_path.replace("\\", "/").rstrip("/")
+
+                # 2) Try mapping to /external mount
+                # Handle Windows absolute paths (D:/foo, C:/Users/..., etc.)
+                if re.match(r"^[A-Za-z]:/", p_norm):
+                    # Extract the path after the drive letter
+                    # If EXTERNAL_PROJECTS_PATH is set, try to map relative to it
+                    if external_host_path:
+                        # Check if path is under the external mount
+                        if p_norm.lower().startswith(external_host_path.lower()):
+                            # Map to /external
+                            relative = p_norm[len(external_host_path):].lstrip("/")
+                            external_path = Path(f"/external/{relative}")
+                            if external_path.exists():
+                                return external_path, ""
+
+                    # Try common parent directory mapping (e.g., D:/GitProjects/Context -> D:/GitProjects)
+                    # Extract parent directory and project name
+                    parts = p_norm.split("/")
+                    if len(parts) >= 3:  # e.g., ['D:', 'GitProjects', 'Boarding_House', ...]
+                        # Try mapping assuming parent of parent is mounted
+                        # e.g., D:/GitProjects/Boarding_House -> /external/Boarding_House
+                        drive_and_parent = "/".join(parts[:2])  # D:/GitProjects
+                        rest = "/".join(parts[2:])  # Boarding_House/src
+                        external_path = Path(f"/external/{rest}")
+                        if external_path.exists():
+                            return external_path, ""
+
+                # 3) Try Unix-style drive paths (/d/foo, /c/Users/...)
+                m = re.match(r"^/([a-z])/(.*)$", p_norm)
                 if m:
-                    drive = m.group(1).lower()
+                    drive = m.group(1)
                     rest = m.group(2)
-                    alt = Path(f"/{drive}/{rest}")
-                    if alt.exists():
-                        return alt
 
-                # 3) Git Bash/Msys style /d/foo
-                if re.match(r"^/[a-z]/", p_norm):
-                    try3 = Path(p_norm)
-                    if try3.exists():
-                        return try3
+                    # Try /external mapping
+                    if external_host_path:
+                        # Reconstruct Windows path and check if under external mount
+                        windows_path = f"{drive.upper()}:/{rest}"
+                        if windows_path.lower().startswith(external_host_path.lower()):
+                            relative = windows_path[len(external_host_path):].lstrip("/")
+                            external_path = Path(f"/external/{relative}")
+                            if external_path.exists():
+                                return external_path, ""
 
-                # 4) Optional JSON mappings via PATH_MAPPINGS_JSON
+                    # Try common parent mapping
+                    parts = rest.split("/")
+                    if len(parts) >= 2:
+                        project_and_rest = "/".join(parts[1:])  # Skip first part (e.g., GitProjects)
+                        external_path = Path(f"/external/{project_and_rest}")
+                        if external_path.exists():
+                            return external_path, ""
+
+                # 4) Optional JSON mappings via PATH_MAPPINGS_JSON (advanced users)
                 mapping_str = os.environ.get("PATH_MAPPINGS_JSON")
                 if mapping_str:
                     try:
@@ -296,17 +340,28 @@ def register_ast_search_tools(mcp: FastMCP):
                                 candidate = container_prefix.rstrip("/") + p_norm[len(host_norm):]
                                 candidate_path = Path(candidate)
                                 if candidate_path.exists():
-                                    return candidate_path
+                                    return candidate_path, ""
                     except Exception as map_e:
                         logger.warning(f"Invalid PATH_MAPPINGS_JSON: {map_e}")
 
-                return direct
+                # Generate helpful error message
+                error_hint = (
+                    f"Path not accessible in container. "
+                    f"To index external projects, set EXTERNAL_PROJECTS_PATH in .env file. "
+                    f"Example: EXTERNAL_PROJECTS_PATH=D:/GitProjects (or C:/Users/username/projects). "
+                    f"Then restart the container with: docker-compose restart context-server"
+                )
+
+                return direct, error_hint
 
             # Validate directory path (after resolution)
-            dir_path = _resolve_dir(directory_path)
+            dir_path, error_hint = _resolve_dir(directory_path)
             if not dir_path.exists():
+                error_msg = f"Directory does not exist: {directory_path}"
+                if error_hint:
+                    error_msg += f"\n\n{error_hint}"
                 return {
-                    "error": f"Directory does not exist: {directory_path}",
+                    "error": error_msg,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
