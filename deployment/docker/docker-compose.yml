@@ -99,6 +99,7 @@ services:
       context: ../../
       dockerfile: deployment/docker/Dockerfile.dev
     container_name: context-server
+    image: context-server:ci
     restart: unless-stopped  # Auto-restart on Docker Desktop startup
     ports:
       - "8000:8000"
@@ -148,6 +149,17 @@ services:
       - CONVERSATION_TTL_SECONDS=${CONVERSATION_TTL_SECONDS}
       - CLAUDE_PROJECT_DIR=/app/workspace
       - DEBUG=${DEBUG:-true}
+      # Feature flags (allow CI to toggle via env)
+      - ENABLE_NLP_ANALYSIS=${ENABLE_NLP_ANALYSIS}
+      - ENABLE_DEPLOYMENT_INTEGRATIONS=${ENABLE_DEPLOYMENT_INTEGRATIONS}
+      - ENABLE_QUERY_REFINEMENT=${ENABLE_QUERY_REFINEMENT}
+      - ENABLE_CONVERSATION_TRACKING=${ENABLE_CONVERSATION_TRACKING}
+      - ENABLE_PERFORMANCE_PROFILING=${ENABLE_PERFORMANCE_PROFILING}
+      - ENABLE_SECURITY_SCANNING=${ENABLE_SECURITY_SCANNING}
+      - ENABLE_REALTIME_MONITORING=${ENABLE_REALTIME_MONITORING}
+      - ENABLE_CODE_GENERATION=${ENABLE_CODE_GENERATION}
+      - ENABLE_PREDICTIVE_CACHING=${ENABLE_PREDICTIVE_CACHING}
+      - ENABLE_CACHE_WARMING=${ENABLE_CACHE_WARMING}
     depends_on:
       qdrant:
         condition: service_healthy

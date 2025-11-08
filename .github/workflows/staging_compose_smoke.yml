@@ -26,9 +26,9 @@ jobs:
         run: |
           echo "USERPROFILE=/home/runner" >> $GITHUB_ENV
           echo "EXTERNAL_PROJECTS_PATH=${GITHUB_WORKSPACE}/.." >> $GITHUB_ENV
-          echo "QDRANT_HOST=localhost" >> $GITHUB_ENV
+          echo "QDRANT_HOST=qdrant" >> $GITHUB_ENV
           echo "QDRANT_PORT=6333" >> $GITHUB_ENV
-          echo "REDIS_URL=redis://localhost:6379/0" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://redis:6379/0" >> $GITHUB_ENV
           echo "MCP_ENABLED=true" >> $GITHUB_ENV
           echo "LOG_LEVEL=INFO" >> $GITHUB_ENV
 
@@ -41,7 +41,7 @@ jobs:
           docker compose -f deployment/docker/docker-compose.yml up -d qdrant redis
           # Give DBs time to get healthy
           sleep 15
-          docker compose -f deployment/docker/docker-compose.yml up -d context-server
+          docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
 
       - name: Wait for context-server health endpoint
         run: |
