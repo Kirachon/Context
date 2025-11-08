@@ -1,4 +1,6 @@
 # Docker Compose Auto-Start Setup - Complete ✅
+> Note: For a high-level summary of recent improvements, see the [Latest Changes and Fixes](README.md#latest-changes-and-fixes) section in README.md. This document focuses on detailed technical setup and troubleshooting.
+
 
 ## 🎉 What Was Done
 

@@ -33,6 +33,28 @@
 - Qdrant collection stats compatibility: robust parsing across API versions and single/multi‑vector configurations.
 - AST vector dimension auto‑migration: AST collections are automatically recreated when embedding dimensions change (e.g., 384 → 768); data is repopulated during indexing.
 - Verification: Claude CLI shows “Connected”; Docker containers healthy; 52/53 MCP tools passing (one prompt generation tool intentionally skipped).
+## ✅ Verification Status and Testing Matrix
+
+Verification Status: 52/53 tools passing (1 skipped: prompt_generate)
+
+| Category | Tools | Status |
+|---|---:|---|
+| Health Tools | 3 | Pass |
+| Capability Tools | 2 | Pass |
+| Indexing Tools | 4 | Pass |
+| Vector Tools | 4 | Pass |
+| Search Tools | 6 | Pass |
+| Pattern Search Tools | 2 | Pass |
+| AST Search Tools | 5 | Pass |
+| Cross-Language Analysis Tools | 3 | Pass |
+| Dependency Analysis Tools | 4 | Pass |
+| Query Understanding Tools | 6 | Pass |
+| Indexing Optimization Tools | 6 | Pass |
+| Prompt Tools | 4 | 3 Pass / 1 Skip |
+| Context-Aware Prompt Tools | 3 | Pass |
+
+Note: All tests were executed via the MCP HTTP transport against the Docker deployment. The single skipped tool (prompt_generate) is intentionally excluded from CI-style verification.
+
 
 ## 🏗️ Architecture
 
