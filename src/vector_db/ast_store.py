@@ -56,7 +56,13 @@ class ASTVectorStore:
         )
 
     async def ensure_collections(self) -> bool:
-        """Ensure all AST collections exist."""
+        """Ensure all AST collections exist with correct vector dimensions.
+
+        If a collection exists but its vector size does not match the current
+        embedding dimension, it will be dropped and recreated. AST data is
+        fully derived from source files, so this migration is safe and will
+        be repopulated on the next indexing run.
+        """
         client = get_qdrant_client()
         if not client:
             logger.error("Qdrant client not available")
@@ -77,9 +83,66 @@ class ASTVectorStore:
             existing_collections = client.get_collections()
             existing_names = [col.name for col in existing_collections.collections]
 
-            # Create missing collections
             for collection_name in collections_to_create:
-                if collection_name not in existing_names:
+                if collection_name in existing_names:
+                    # Verify vector dimension and recreate if mismatched
+                    try:
+                        info = client.get_collection(collection_name)
+                        vec_size = None
+                        try:
+                            vectors_cfg = info.config.params.vectors
+                            # Single vector space
+                            vec_size = getattr(vectors_cfg, 'size', None)
+                            if vec_size is None:
+                                # Multi-vector space (dict or __root__)
+                                if isinstance(vectors_cfg, dict):
+                                    first = next(iter(vectors_cfg.values()), None)
+                                else:
+                                    first = getattr(vectors_cfg, '__root__', None)
+                                    if isinstance(first, dict):
+                                        first = next(iter(first.values()), None)
+                                if first is not None:
+                                    vec_size = getattr(first, 'size', None)
+                                    if vec_size is None and isinstance(first, dict):
+                                        vec_size = first.get('size')
+                        except Exception:
+                            vec_size = None
+
+                        if vec_size is not None and int(vec_size) != int(vector_size):
+                            logger.warning(
+                                "AST collection '%s' vector size mismatch: existing=%s, required=%s; recreating",
+                                collection_name, vec_size, vector_size,
+                            )
+                            # Drop and recreate with correct size
+                            client.delete_collection(collection_name=collection_name)
+                            client.create_collection(
+                                collection_name=collection_name,
+                                vectors_config=models.VectorParams(
+                                    size=vector_size, distance=models.Distance.COSINE
+                                ),
+                            )
+                            logger.info("Recreated AST collection: %s (size=%s)", collection_name, vector_size)
+                        else:
+                            logger.debug("AST collection '%s' OK (size=%s)", collection_name, vec_size or 'unknown')
+                    except Exception as ce:
+                        logger.warning(
+                            "Failed to validate existing AST collection '%s' (%s); ensuring exists with desired size",
+                            collection_name, ce,
+                        )
+                        # Best-effort: try to (re)create with desired params
+                        try:
+                            client.create_collection(
+                                collection_name=collection_name,
+                                vectors_config=models.VectorParams(
+                                    size=vector_size, distance=models.Distance.COSINE
+                                ),
+                            )
+                            logger.info("Ensured AST collection: %s (size=%s)", collection_name, vector_size)
+                        except Exception:
+                            # Ignore if already exists with correct config
+                            pass
+                else:
+                    # Create missing collections
                     logger.info(f"Creating AST collection: {collection_name}")
                     client.create_collection(
                         collection_name=collection_name,
@@ -88,8 +151,6 @@ class ASTVectorStore:
                         ),
                     )
                     logger.info(f"Created collection: {collection_name}")
-                else:
-                    logger.debug(f"Collection already exists: {collection_name}")
 
             return True
 

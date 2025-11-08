@@ -226,12 +226,12 @@ def main():
     This is used when running: python -m src.mcp_server.http_server
     """
     logger.info("Starting Context MCP HTTP Server...")
-    logger.info(f"Server will be available at: http://127.0.0.1:8000/")
+    logger.info(f"Server will be available at: http://0.0.0.0:8000/")
     logger.info("Press Ctrl+C to stop the server")
 
     # Create the ASGI app and run with uvicorn
     app = create_app()
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
 
 
 if __name__ == "__main__":

@@ -174,16 +174,48 @@ class CollectionManager:
         try:
             collection_info = client.get_collection(name)
 
+            # Robust extraction of vector params across Qdrant versions and single/multi-vector schemas
+            vec_size = None
+            distance = None
+            try:
+                vectors_cfg = collection_info.config.params.vectors
+                # Case 1: single vector space (VectorParams-like)
+                vec_size = getattr(vectors_cfg, 'size', None)
+                dist_obj = getattr(vectors_cfg, 'distance', None)
+                distance = getattr(dist_obj, 'value', dist_obj)
+                # Case 2: multi-vector space (dict or VectorParamsMap.__root__)
+                if vec_size is None:
+                    if isinstance(vectors_cfg, dict):
+                        first = next(iter(vectors_cfg.values()), None)
+                    else:
+                        first = getattr(vectors_cfg, '__root__', None)
+                        if isinstance(first, dict):
+                            first = next(iter(first.values()), None)
+                    if first is not None:
+                        vec_size = getattr(first, 'size', None)
+                        dist_obj = getattr(first, 'distance', None)
+                        if vec_size is None and isinstance(first, dict):
+                            vec_size = first.get('size')
+                            dist_obj = first.get('distance')
+                        distance = getattr(dist_obj, 'value', dist_obj)
+            except Exception:
+                # Best-effort fallback
+                vec_size = getattr(getattr(collection_info, 'config', object), 'params', object)
+                vec_size = getattr(getattr(vec_size, 'vectors', object), 'size', None)
+
+            # Prefer new fields where available
+            points_count = getattr(collection_info, 'points_count', None)
+            vectors_count = getattr(collection_info, 'vectors_count', None)
+            segments_count = getattr(collection_info, 'segments_count', None)
+
             stats = {
                 "name": name,
-                "status": collection_info.status.value,
-                "points_count": collection_info.points_count,
-                "vector_size": collection_info.config.params.vectors.size,
-                "distance": collection_info.config.params.vectors.distance.value,
-                "indexed_vectors_count": collection_info.indexed_vectors_count or 0,
-                "segments_count": (
-                    len(collection_info.segments) if collection_info.segments else 0
-                ),
+                "status": getattr(getattr(collection_info, 'status', None), 'value', getattr(collection_info, 'status', 'unknown')),
+                "points_count": points_count if points_count is not None else 0,
+                "vectors_count": vectors_count if vectors_count is not None else 0,
+                "vector_size": vec_size,
+                "distance": distance,
+                "segments_count": segments_count if segments_count is not None else 0,
             }
 
             logger.debug(f"Retrieved stats for collection {name}")
