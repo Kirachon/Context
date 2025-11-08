@@ -8,6 +8,8 @@ import os
 import sys
 from datetime import datetime, timezone
 from typing import Optional
+import logging
+
 
 from sqlalchemy import Column, Integer, String, DateTime, BigInteger, create_engine
 from sqlalchemy.orm import declarative_base
@@ -15,6 +17,9 @@ from sqlalchemy.orm import sessionmaker
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+
+
+logger = logging.getLogger(__name__)
 
 from src.config.settings import settings
 
@@ -68,23 +73,50 @@ class FileMetadata(Base):
         }
 
 
+# Optional DB availability flags
+_db_available = False
+_db_init_attempted = False
+
+
 # Database engine and session
 engine = None
 SessionLocal = None
 
 
 def init_db():
-    """Initialize database connection and create tables"""
-    global engine, SessionLocal
+    """Initialize database connection and create tables (optional)"""
+    global engine, SessionLocal, _db_available, _db_init_attempted
+
+    if _db_init_attempted and not _db_available:
+        # Already attempted and unavailable; do not retry aggressively
+        return
+
+    _db_init_attempted = True
+
+    # Respect settings flag: do not attempt DB when disabled or URL missing
+    if not getattr(settings, "postgres_enabled", False) or not getattr(settings, "database_url", None):
+        logger.info("PostgreSQL disabled; operating in vector-only mode")
+        _db_available = False
+        engine = None
+        SessionLocal = None
+        return
 
     if engine is None:
-        engine = create_engine(
-            settings.database_url, pool_pre_ping=True, pool_size=5, max_overflow=10
-        )
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        try:
+            engine = create_engine(
+                settings.database_url, pool_pre_ping=True, pool_size=5, max_overflow=10
+            )
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-        # Create tables
-        Base.metadata.create_all(bind=engine)
+            # Create tables
+            Base.metadata.create_all(bind=engine)
+            _db_available = True
+            logger.info("PostgreSQL database initialized successfully")
+        except Exception as e:
+            logger.warning(f"PostgreSQL unavailable; running in vector-only mode: {e}")
+            _db_available = False
+            engine = None
+            SessionLocal = None
 
 
 def get_db():
@@ -114,6 +146,8 @@ async def create_file_metadata(metadata: dict) -> Optional[FileMetadata]:
     """
     if SessionLocal is None:
         init_db()
+    if SessionLocal is None or not _db_available:
+        return None
 
     db = SessionLocal()
     try:
@@ -157,6 +191,8 @@ async def update_file_metadata(
     """
     if SessionLocal is None:
         init_db()
+    if SessionLocal is None or not _db_available:
+        return None
 
     db = SessionLocal()
     try:
@@ -198,6 +234,8 @@ async def delete_file_metadata(file_path: str) -> bool:
     """
     if SessionLocal is None:
         init_db()
+    if SessionLocal is None or not _db_available:
+        return True  # treat as deleted when DB is unavailable
 
     db = SessionLocal()
     try:
@@ -232,6 +270,8 @@ async def get_file_metadata(file_path: str) -> Optional[FileMetadata]:
     """
     if SessionLocal is None:
         init_db()
+    if SessionLocal is None or not _db_available:
+        return None
 
     db = SessionLocal()
     try:
@@ -255,6 +295,8 @@ async def get_all_file_metadata(limit: int = 100, offset: int = 0) -> list:
     """
     if SessionLocal is None:
         init_db()
+    if SessionLocal is None or not _db_available:
+        return []
 
     db = SessionLocal()
     try:
@@ -272,6 +314,8 @@ async def get_metadata_stats() -> dict:
     """
     if SessionLocal is None:
         init_db()
+    if SessionLocal is None or not _db_available:
+        return {"total_files": 0, "by_type": {}, "by_status": {}, "disabled": True}
 
     db = SessionLocal()
     try:

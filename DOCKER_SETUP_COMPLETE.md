@@ -1,6 +1,9 @@
 # Docker Compose Auto-Start Setup - Complete ✅
 > Note: For a high-level summary of recent improvements, see the [Latest Changes and Fixes](README.md#latest-changes-and-fixes) section in README.md. This document focuses on detailed technical setup and troubleshooting.
 
+> PostgreSQL optional mode: As of this update, PostgreSQL is truly optional and disabled by default. The server runs in vector-only mode and will not attempt any database connections when `POSTGRES_ENABLED=false`. To opt-in to metadata persistence, set `POSTGRES_ENABLED=true` and provide a valid `DATABASE_URL`.
+
+
 
 ## 🎉 What Was Done
 

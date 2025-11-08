@@ -58,11 +58,17 @@ async def lifespan(app: FastAPI):
     try:
         from src.indexing.file_monitor import start_file_monitor
         from src.indexing.queue import queue_file_change
-        from src.indexing.models import init_db
 
-        # Initialize database
-        init_db()
-        logger.info("Database initialized successfully")
+        # Initialize database (optional)
+        if getattr(settings, "postgres_enabled", False) and getattr(settings, "database_url", None):
+            try:
+                from src.indexing.models import init_db
+                init_db()
+                logger.info("PostgreSQL initialized; metadata persistence enabled")
+            except Exception as e:
+                logger.warning(f"PostgreSQL unavailable; proceeding in vector-only mode: {e}")
+        else:
+            logger.info("PostgreSQL disabled; running in vector-only mode")
 
         # Start file monitor with queue callback
         await start_file_monitor(on_change_callback=queue_file_change)
@@ -373,12 +379,15 @@ async def indexing_status():
         # Get indexer stats
         indexer_stats = get_indexer_stats()
 
-        # Get database stats
-        try:
-            db_stats = await get_metadata_stats()
-        except Exception as e:
-            logger.warning(f"Could not get database stats: {e}")
-            db_stats = {"error": str(e)}
+        # Get database stats (optional)
+        if getattr(settings, "postgres_enabled", False) and getattr(settings, "database_url", None):
+            try:
+                db_stats = await get_metadata_stats()
+            except Exception as e:
+                logger.warning(f"Could not get database stats: {e}")
+                db_stats = {"error": str(e)}
+        else:
+            db_stats = {"disabled": True, "message": "PostgreSQL disabled; running in vector-only mode"}
 
         return IndexingStatusResponse(
             file_monitor={

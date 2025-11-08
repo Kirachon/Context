@@ -18,6 +18,8 @@ from src.indexing.file_monitor import get_monitor_status
 from src.indexing.file_indexer import get_indexer_stats
 from src.indexing.queue import get_queue_status
 
+from src.config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,10 +37,17 @@ def register_indexing_tools(mcp: FastMCP):
         Get comprehensive indexing status
 
         Returns comprehensive information about:
+        - Unique files indexed (actual file count from database)
+        - Total indexing operations performed (may be higher due to re-indexing)
         - File monitor status
         - Indexing queue status
-        - Indexing statistics
-        - Database statistics
+        - Breakdown by component (FileIndexer, ASTIndexer, Queue)
+
+        The key metrics to understand:
+        - unique_files_indexed: Actual number of distinct files in the system
+        - total_operations: Total number of indexing operations (includes re-indexing)
+        - Operations count will be higher than unique files due to file modifications,
+          multiple indexing passes, and different indexing components
 
         Returns:
             Dict containing indexing status information
@@ -56,16 +65,72 @@ def register_indexing_tools(mcp: FastMCP):
             # Get indexer stats
             indexer_stats = get_indexer_stats()
 
-            # Get database stats
-            try:
-                from src.indexing.models import get_metadata_stats
+            # Get database stats (optional)
+            if getattr(settings, "postgres_enabled", False) and getattr(settings, "database_url", None):
+                try:
+                    from src.indexing.models import get_metadata_stats
+                    db_stats = await get_metadata_stats()
+                    unique_files_count = db_stats.get("total_files", 0)
+                except Exception as e:
+                    logger.warning(f"Could not get database stats: {e}")
+                    db_stats = {"error": str(e)}
+                    unique_files_count = 0
+            else:
+                db_stats = {"disabled": True, "message": "PostgreSQL disabled; running in vector-only mode"}
+                unique_files_count = 0
 
-                db_stats = await get_metadata_stats()
+            # Get AST indexer stats
+            try:
+                from src.indexing.ast_indexer import get_ast_indexer
+
+                ast_indexer = get_ast_indexer()
+                ast_stats = ast_indexer.get_stats()
             except Exception as e:
-                logger.warning(f"Could not get database stats: {e}")
-                db_stats = {"error": str(e)}
+                logger.warning(f"Could not get AST indexer stats: {e}")
+                ast_stats = {"error": str(e)}
+
+            # Calculate total operations across all components
+            total_operations = (
+                indexer_stats.get("total_indexed", 0)
+                + queue_status["stats"].get("total_processed", 0)
+                + ast_stats.get("files_indexed", 0)
+            )
 
             result = {
+                # PRIMARY METRICS - What users care about
+                "summary": {
+                    "unique_files_indexed": unique_files_count,
+                    "total_operations": total_operations,
+                    "description": f"{unique_files_count} unique files indexed with {total_operations} total operations",
+                },
+                # Detailed breakdown
+                "operations_by_component": {
+                    "file_indexer": {
+                        "operations": indexer_stats.get("total_indexed", 0),
+                        "errors": indexer_stats.get("total_errors", 0),
+                        "by_language": indexer_stats.get("by_language", {}),
+                        "description": "Semantic embedding operations",
+                    },
+                    "ast_indexer": {
+                        "operations": ast_stats.get("files_indexed", 0),
+                        "symbols_indexed": ast_stats.get("symbols_indexed", 0),
+                        "classes_indexed": ast_stats.get("classes_indexed", 0),
+                        "imports_indexed": ast_stats.get("imports_indexed", 0),
+                        "errors": ast_stats.get("errors", 0),
+                        "description": "Code structure parsing operations",
+                    },
+                    "queue": {
+                        "operations": queue_status["stats"].get("total_processed", 0),
+                        "unique_files": queue_status["stats"].get(
+                            "unique_files_processed", 0
+                        ),
+                        "duplicates_skipped": queue_status["stats"].get(
+                            "duplicate_requests_skipped", 0
+                        ),
+                        "failed": queue_status["stats"].get("total_failed", 0),
+                        "description": "Queue processing operations",
+                    },
+                },
                 "file_monitor": {
                     "running": monitor_status["running"],
                     "monitored_paths": monitor_status["monitored_paths"],
@@ -76,19 +141,14 @@ def register_indexing_tools(mcp: FastMCP):
                     "processing": queue_status["processing"],
                     "queue_size": queue_status["queue_size"],
                     "current_item": queue_status["current_item"],
-                    "stats": queue_status["stats"],
-                },
-                "indexer": {
-                    "total_indexed": indexer_stats["total_indexed"],
-                    "total_errors": indexer_stats["total_errors"],
-                    "by_language": indexer_stats["by_language"],
-                    "supported_languages": indexer_stats["supported_languages"],
                 },
                 "database": db_stats,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
-            logger.info("Indexing status retrieved successfully")
+            logger.info(
+                f"Indexing status: {unique_files_count} unique files, {total_operations} operations"
+            )
             logger.debug(f"Indexing status result: {result}")
 
             return result

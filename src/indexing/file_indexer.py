@@ -13,6 +13,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from src.monitoring.metrics import metrics
+from src.config.settings import settings
+
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -65,7 +67,13 @@ class FileIndexer:
     def __init__(self):
         """Initialize file indexer"""
         logger.info("FileIndexer initialized")
-        self.stats = {"total_indexed": 0, "total_errors": 0, "by_language": {}}
+        self.stats = {
+            "total_indexed": 0,
+            "total_errors": 0,
+            "unique_files_indexed": 0,
+            "by_language": {},
+        }
+        self.indexed_files: set = set()  # Track unique files
 
     async def detect_file_type(self, file_path: str) -> Optional[str]:
         """
@@ -172,13 +180,14 @@ class FileIndexer:
             metadata["status"] = "indexed"
 
             # Persist metadata (optional PostgreSQL)
-            use_db = True
-            try:
-                existing = await get_file_metadata(file_path)
-            except Exception as e:
-                logger.warning(f"PostgreSQL unavailable; skipping metadata persistence for {file_path}: {e}")
-                use_db = False
-                existing = None
+            use_db = getattr(settings, "postgres_enabled", False) and bool(getattr(settings, "database_url", None))
+            existing = None
+            if use_db:
+                try:
+                    existing = await get_file_metadata(file_path)
+                except Exception as e:
+                    logger.warning(f"PostgreSQL unavailable; skipping metadata persistence for {file_path}: {e}")
+                    use_db = False
 
             if use_db:
                 try:
@@ -237,6 +246,12 @@ class FileIndexer:
 
             # Update stats
             self.stats["total_indexed"] += 1
+
+            # Track unique files
+            if file_path not in self.indexed_files:
+                self.indexed_files.add(file_path)
+                self.stats["unique_files_indexed"] += 1
+
             language = metadata["file_type"]
             self.stats["by_language"][language] = (
                 self.stats["by_language"].get(language, 0) + 1
@@ -274,11 +289,13 @@ class FileIndexer:
 
         try:
             # Remove from database (optional)
-            try:
-                success = await delete_file_metadata(file_path)
-            except Exception as e:
-                logger.warning(f"PostgreSQL unavailable; skipping metadata delete for {file_path}: {e}")
-                success = True
+            success = True
+            if getattr(settings, "postgres_enabled", False) and bool(getattr(settings, "database_url", None)):
+                try:
+                    success = await delete_file_metadata(file_path)
+                except Exception as e:
+                    logger.warning(f"PostgreSQL unavailable; skipping metadata delete for {file_path}: {e}")
+                    success = True
 
             # Remove from vector database
             try:
@@ -288,6 +305,9 @@ class FileIndexer:
                 logger.info(f"Removed vector for {file_path}")
             except Exception as e:
                 logger.error(f"Error removing vector for {file_path}: {e}")
+
+            # Remove from unique files tracking
+            self.indexed_files.discard(file_path)
 
             if success:
                 logger.info(f"Successfully removed {file_path} from index")
@@ -309,6 +329,7 @@ class FileIndexer:
         """
         return {
             "total_indexed": self.stats["total_indexed"],
+            "unique_files_indexed": self.stats["unique_files_indexed"],
             "total_errors": self.stats["total_errors"],
             "by_language": self.stats["by_language"],
             "supported_languages": list(set(self.LANGUAGE_EXTENSIONS.values())),

@@ -279,6 +279,8 @@ PYTHONPATH=D:\GitProjects\Context  # Adjust to your path
 REDIS_URL=redis://localhost:6379
 QDRANT_URL=http://localhost:6333
 DATABASE_URL=postgresql://context:password@localhost:5432/context_dev  # Optional
+POSTGRES_ENABLED=false  # Optional; when false, server runs in vector-only mode
+
 
 # GPU Configuration (optional)
 CUDA_VISIBLE_DEVICES=0  # Set to specific GPU ID if you have multiple GPUs
@@ -549,7 +551,7 @@ The Context MCP Server uses a **two-tier architecture**:
    - Runs on `0.0.0.0:8000` (accessible externally)
    - Handles file monitoring, indexing, and storage
    - Uses Google Gemini embeddings (768 dimensions)
-   - Stores vectors in Qdrant and metadata in PostgreSQL
+   - Stores vectors in Qdrant; metadata optionally in PostgreSQL (disabled by default)
 
 2. **Local MCP HTTP Server**: Claude CLI interface
    - Runs on `127.0.0.1:8000` (localhost only)
@@ -673,7 +675,10 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 #### 4. PostgreSQL Connection Failed
 
-**Note**: This is **non-critical**. PostgreSQL is only used for file indexing metadata.
+PostgreSQL is optional and disabled by default. When `POSTGRES_ENABLED=false`, the server runs in vector-only mode and will not attempt any database connections.
+
+- If you see connection errors in logs, set `POSTGRES_ENABLED=false` in your `.env` and restart the server.
+- To enable metadata persistence, set `POSTGRES_ENABLED=true` and provide a valid `DATABASE_URL`.
 
 **If you need PostgreSQL**:
 ```bash
@@ -686,8 +691,6 @@ CREATE USER context WITH PASSWORD 'password';
 CREATE DATABASE context_dev OWNER context;
 GRANT ALL PRIVILEGES ON DATABASE context_dev TO context;
 ```
-
-**If you don't need PostgreSQL**: Ignore this error. All core MCP functionality works without it.
 
 #### 5. Vector Dimension Mismatch
 
