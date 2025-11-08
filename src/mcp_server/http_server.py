@@ -195,9 +195,13 @@ def create_app():
     
     logger.info("Initializing services...")
     try:
-        success = loop.run_until_complete(initialize_services())
-        if not success:
-            logger.warning("Service initialization incomplete, continuing anyway...")
+        if os.environ.get("FAST_STARTUP", "").lower() == "true":
+            logger.info("FAST_STARTUP enabled: initializing services in background")
+            loop.create_task(initialize_services())
+        else:
+            success = loop.run_until_complete(initialize_services())
+            if not success:
+                logger.warning("Service initialization incomplete, continuing anyway...")
     except Exception as e:
         logger.error(f"Service initialization failed: {e}", exc_info=True)
         logger.warning("Continuing without full service initialization...")
