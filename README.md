@@ -25,15 +25,22 @@
 | **Embedding Generation** | 2,363.7 embeddings/sec (GPU) |
 | **First Query Latency** | 11.6ms |
 | **GPU Acceleration** | 20-40x faster than CPU |
-| **Vector Dimensions** | 384 (all-MiniLM-L6-v2) |
+| **Vector Dimensions** | 768 (Docker: Google text-embedding-004); 384 (local dev: all-MiniLM-L6-v2) |
+
+## 🆕 Latest Changes and Fixes
+
+- HTTP transport (Docker) binding fix: server now binds to `0.0.0.0` inside the container; access via `http://localhost:8000/`. MCP HTTP endpoint is at path `/`.
+- Qdrant collection stats compatibility: robust parsing across API versions and single/multi‑vector configurations.
+- AST vector dimension auto‑migration: AST collections are automatically recreated when embedding dimensions change (e.g., 384 → 768); data is repopulated during indexing.
+- Verification: Claude CLI shows “Connected”; Docker containers healthy; 52/53 MCP tools passing (one prompt generation tool intentionally skipped).
 
 ## 🏗️ Architecture
 
 ### Core Components
 
 - **MCP Server**: FastMCP-based server implementing Model Context Protocol
-- **Vector Database**: Qdrant for 384-dimensional embeddings storage
-- **Embedding Model**: all-MiniLM-L6-v2 with PyTorch + CUDA GPU acceleration
+- **Vector Database**: Qdrant for vector embeddings storage (768d in Docker; 384d in local dev)
+- **Embedding Model**: Google text-embedding-004 (768d) in Docker; sentence-transformers all-MiniLM-L6-v2 (384d) for local dev
 - **Cache Layer**: Redis for AST and query result caching
 - **AST Parser**: Tree-sitter for multi-language syntax analysis
 - **Metadata Store**: PostgreSQL (optional, for file indexing history)
@@ -79,30 +86,10 @@ Context MCP Server uses a **hybrid deployment architecture** that separates conc
                          │ MCP Protocol (HTTP)
                          │ http://localhost:8000/
 ┌────────────────────────▼────────────────────────────────────┐
-│         Local MCP HTTP Server (127.0.0.1:8000)              │
-│  - Serves MCP tools to Claude CLI                           │
-│  - Lightweight interface layer                              │
-│  - Queries Docker services for data                         │
-└─────────────────────────────────────────────────────────────┘
-                         │
-                         │ Internal queries
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│      Docker Container: context-server (0.0.0.0:8000)        │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  Production Indexing Pipeline                         │  │
-│  │  - File monitoring & change detection                 │  │
-│  │  - Automatic indexing (151 files indexed)             │  │
-│  │  - Google Gemini embeddings (768 dimensions)          │  │
-│  │  - Qdrant vector storage                              │  │
-│  │  - PostgreSQL metadata persistence                    │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                               │
-│  Connected Services:                                         │
-│  ├─ Qdrant (qdrant:6333) - Vector database                  │
-│  ├─ PostgreSQL (postgres:5432) - Metadata store             │
-│  ├─ Redis (redis:6379) - Cache layer                        │
-│  └─ Ollama (ollama:11434) - Local LLM (optional)            │
+│      Docker MCP HTTP Server (0.0.0.0:8000 → host:8000)       │
+│  - Serves MCP tools to Claude CLI                             │
+│  - Persistent FastMCP over HTTP at path '/'                   │
+│  - Requires Accept: application/json, text/event-stream       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -121,14 +108,13 @@ Context MCP Server uses a **hybrid deployment architecture** that separates conc
 
 ### Port Configuration
 
-Both services use port 8000 but on different network interfaces:
+Port 8000 is published from the Docker container to the host:
 
 | Service | Bind Address | Purpose | Access |
 |---------|--------------|---------|--------|
-| **Docker Container** | `0.0.0.0:8000` | Production API, metrics, health checks | External access |
-| **Local MCP Server** | `127.0.0.1:8000` | MCP protocol interface for Claude CLI | Localhost only |
+| **Docker MCP Server** | `0.0.0.0:8000` | MCP HTTP endpoint (path `/`) | Host: http://localhost:8000/ |
 
-This configuration allows both to coexist without conflicts.
+Note: Do not run a separate local MCP HTTP server on `127.0.0.1:8000` at the same time, or Docker's port mapping will conflict.
 
 ### Deployment Status
 
@@ -315,19 +301,19 @@ Context MCP Server supports two transport modes:
 }
 ```
 
-**Start the HTTP server**:
+**Start the HTTP server (Docker, recommended)**:
 ```bash
-# Option 1: Using Python directly
-python -m src.mcp_server.http_server
-
-# Option 2: Using the startup script
-python start_http_server.py --host 127.0.0.1 --port 8000
-
-# Option 3: Using PowerShell (Windows)
-.\start_http_server.ps1 -Host 127.0.0.1 -Port 8000
+cd deployment/docker
+docker-compose up -d context-server
+# Container binds to 0.0.0.0:8000; access at http://localhost:8000/
 ```
 
-The HTTP server runs persistently in the background and serves all Claude CLI sessions.
+Optional (local; do not run at the same time as Docker on port 8000):
+```bash
+python start_http_server.py --host 127.0.0.1 --port 8000
+```
+
+Note: MCP HTTP endpoint is at path `/` and clients must send header `Accept: application/json, text/event-stream`.
 
 #### Option B: Stdio Transport (Legacy)
 
@@ -685,7 +671,7 @@ GRANT ALL PRIVILEGES ON DATABASE context_dev TO context;
 
 **Symptoms**: Search returns no results or errors about dimension mismatch
 
-**Cause**: Docker container uses 768-dim Google embeddings, local server uses 384-dim sentence-transformers
+**Cause**: Docker container uses 768‑dim Google embeddings, local server uses 384‑dim sentence‑transformers
 
 **Understanding the Difference**:
 - **Docker Container (Production)**: Uses Google Gemini `text-embedding-004` model (768 dimensions)
@@ -699,6 +685,8 @@ GRANT ALL PRIVILEGES ON DATABASE context_dev TO context;
   - Used for MCP tool queries
 
 **Solutions**:
+
+- Auto-fix for AST collections: As of the latest release, AST collections (`context_symbols`, `context_classes`, `context_imports`) auto-detect vector dimension changes and will be safely recreated with the correct size during indexing. No manual action is required—just re-run AST indexing or let background indexing repopulate.
 
 **Option A: Use Docker for Everything (Recommended)**
 ```bash
