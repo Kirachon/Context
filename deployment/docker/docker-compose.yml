@@ -112,6 +112,8 @@ services:
       - ${USERPROFILE}/.cache/huggingface:/root/.cache/huggingface:ro
       # Mount the project directory for indexing (read-only)
       - ../../:/app/workspace:ro
+      # Optionally mount host D:\gitprojects for Windows paths like /d/gitprojects (read-only)
+      - "D:/gitprojects:/d/gitprojects:ro"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1

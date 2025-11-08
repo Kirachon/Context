@@ -257,9 +257,53 @@ def register_ast_search_tools(mcp: FastMCP):
 
         try:
             from pathlib import Path
+            import re
 
-            # Validate directory path
-            dir_path = Path(directory_path)
+            # Resolve host -> container path if needed (Windows and Git Bash compatibility)
+            def _resolve_dir(p: str) -> Path:
+                # 1) Direct path as-is
+                direct = Path(p)
+                if direct.exists():
+                    return direct
+
+                # Normalize slashes
+                p_norm = p.replace("\\", "/")
+
+                # 2) Windows drive path like D:\\foo or D:/foo -> /d/foo
+                m = re.match(r"^([A-Za-z]):/(.*)$", p_norm)
+                if m:
+                    drive = m.group(1).lower()
+                    rest = m.group(2)
+                    alt = Path(f"/{drive}/{rest}")
+                    if alt.exists():
+                        return alt
+
+                # 3) Git Bash/Msys style /d/foo
+                if re.match(r"^/[a-z]/", p_norm):
+                    try3 = Path(p_norm)
+                    if try3.exists():
+                        return try3
+
+                # 4) Optional JSON mappings via PATH_MAPPINGS_JSON
+                mapping_str = os.environ.get("PATH_MAPPINGS_JSON")
+                if mapping_str:
+                    try:
+                        import json
+                        mappings = json.loads(mapping_str)
+                        for host_prefix, container_prefix in mappings.items():
+                            host_norm = host_prefix.replace("\\", "/")
+                            if p_norm.lower().startswith(host_norm.lower()):
+                                candidate = container_prefix.rstrip("/") + p_norm[len(host_norm):]
+                                candidate_path = Path(candidate)
+                                if candidate_path.exists():
+                                    return candidate_path
+                    except Exception as map_e:
+                        logger.warning(f"Invalid PATH_MAPPINGS_JSON: {map_e}")
+
+                return direct
+
+            # Validate directory path (after resolution)
+            dir_path = _resolve_dir(directory_path)
             if not dir_path.exists():
                 return {
                     "error": f"Directory does not exist: {directory_path}",
