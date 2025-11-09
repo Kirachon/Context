@@ -50,9 +50,6 @@ jobs:
       - name: Start context-server with one flag enabled
         env:
           ${{ matrix.flag }}: "true"
-          QDRANT_HOST: localhost
-          REDIS_HOST: localhost
-          PYTHONUNBUFFERED: "1"
         run: |
           docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
           sleep 10
