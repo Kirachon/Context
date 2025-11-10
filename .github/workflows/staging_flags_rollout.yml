@@ -51,7 +51,7 @@ jobs:
         env:
           ${{ matrix.flag }}: "true"
         run: |
-          docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
+          FAST_STARTUP=true docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
           sleep 10
 
       - name: Check health

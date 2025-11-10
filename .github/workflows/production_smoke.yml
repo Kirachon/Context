@@ -33,7 +33,7 @@ jobs:
         run: |
           docker compose -f deployment/docker/docker-compose.yml up -d qdrant redis
           sleep 15
-          docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
+          FAST_STARTUP=true docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
           sleep 10
 
       - name: Wait for context-server

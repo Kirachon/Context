@@ -43,7 +43,7 @@ jobs:
           docker compose -f deployment/docker/docker-compose.yml up -d qdrant redis
           # Give DBs time to get healthy
           sleep 15
-          docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
+          FAST_STARTUP=true docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
 
       - name: Wait for context-server health endpoint
         run: |
