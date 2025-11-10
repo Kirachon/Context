@@ -62,6 +62,13 @@ jobs:
               echo "Server reachable"; break; fi
             echo "Waiting for server... ($i)"; sleep 5;
           done
+          code=$(curl -s -o /dev/null -w "%{http_code}" -H 'Accept: application/json, text/event-stream' http://localhost:8000/ || true)
+          if [ "$code" != "405" ] && [ "$code" != "200" ]; then
+            echo "Health check failed with code: $code"
+            docker compose -f deployment/docker/docker-compose.yml logs context-server
+            exit 1
+          fi
+          echo "Server is healthy (HTTP $code)"
 
       - name: Smoke JSON-RPC initialize
         run: |
