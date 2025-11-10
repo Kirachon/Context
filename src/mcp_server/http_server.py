@@ -170,58 +170,90 @@ async def initialize_services():
 def create_app():
     """
     Create the ASGI application for HTTP transport
-    
+
     This function is called by uvicorn to create the application instance.
     It initializes services and creates the FastMCP HTTP app.
-    
+
     Returns:
         StarletteWithLifespan: ASGI application instance
     """
     logger.info("Creating HTTP MCP server application...")
     logger.info(f"Server: {settings.mcp_server_name} v{settings.mcp_server_version}")
-    
+
     # Log diagnostic information
     logger.info(f"Current working directory: {os.getcwd()}")
     logger.info(f"CLAUDE_PROJECT_DIR: {os.environ.get('CLAUDE_PROJECT_DIR', 'NOT SET')}")
     logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'NOT SET')}")
     logger.info(f"Indexed paths from settings: {settings.indexed_paths}")
-    
-    # Initialize services synchronously (create event loop if needed)
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    logger.info("Initializing services...")
-    try:
-        if os.environ.get("FAST_STARTUP", "").lower() == "true":
-            logger.info("FAST_STARTUP enabled: initializing services in background")
-            loop.create_task(initialize_services())
-        else:
+
+    # Check if FAST_STARTUP is enabled
+    fast_startup = os.environ.get("FAST_STARTUP", "").lower() == "true"
+
+    if not fast_startup:
+        # Initialize services synchronously during app creation (original behavior)
+        logger.info("Initializing services synchronously...")
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        try:
             success = loop.run_until_complete(initialize_services())
             if not success:
                 logger.warning("Service initialization incomplete, continuing anyway...")
-    except Exception as e:
-        logger.error(f"Service initialization failed: {e}", exc_info=True)
-        logger.warning("Continuing without full service initialization...")
-    
+        except Exception as e:
+            logger.error(f"Service initialization failed: {e}", exc_info=True)
+            logger.warning("Continuing without full service initialization...")
+    else:
+        # FAST_STARTUP: defer initialization to lifespan event
+        logger.info("FAST_STARTUP enabled: services will initialize in background after server starts")
+
     # Use the GLOBAL MCP server instance
     logger.info("Creating MCP server instance...")
     from src.mcp_server.mcp_app import mcp_server
-    
+
     mcp = mcp_server.create_server()
-    
+
     # Register ALL tools
     logger.info("Registering MCP tools...")
     mcp_server.register_tools()
-    
+
     # Mark as running
     mcp_server.is_running = True
     mcp_server.connection_state = "listening"
-    
+
     logger.info("Creating streamable HTTP ASGI app at path '/'")
     app = mcp.streamable_http_app(path="/")
+
+    # If FAST_STARTUP, add lifespan event to initialize in background
+    if fast_startup:
+        import asyncio
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def lifespan(app):
+            # Startup: initialize services in background
+            logger.info("Server started, beginning background initialization...")
+            task = asyncio.create_task(initialize_services())
+            yield
+            # Shutdown: wait for initialization to complete
+            if not task.done():
+                logger.info("Waiting for background initialization to complete...")
+                try:
+                    await asyncio.wait_for(task, timeout=10.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Background initialization did not complete within timeout")
+                    task.cancel()
+
+        # Wrap the app with lifespan
+        from starlette.applications import Starlette
+        wrapped_app = Starlette(routes=[], lifespan=lifespan)
+        # Mount the MCP app
+        wrapped_app.mount("/", app)
+        logger.info("✅ MCP HTTP app ready with background initialization")
+        return wrapped_app
+
     logger.info("✅ MCP HTTP app ready")
     return app
 
