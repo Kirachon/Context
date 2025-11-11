@@ -179,6 +179,8 @@ class MCPServer:
         )
         from src.mcp_server.tools.prompt_tools import register_prompt_tools
         from src.mcp_server.tools.context_aware_prompt import register_context_aware_tools
+        # Optional: workspace tools (only in workspace mode)
+        from src.mcp_server.tools.workspace import register_workspace_tools
         # Optional: deployment integrations (feature-flagged)
         from src.mcp_server.tools.deployment_integrations import register_deployment_tools
 
@@ -215,6 +217,14 @@ class MCPServer:
         register_indexing_optimization_tools(self.mcp)
         register_prompt_tools(self.mcp)
         register_context_aware_tools(self.mcp)
+
+        # Conditionally register workspace tools (only in workspace mode)
+        from src.mcp_server.http_server import is_workspace_mode
+        if is_workspace_mode():
+            logger.info("Workspace mode detected - registering workspace tools")
+            register_workspace_tools(self.mcp)
+        else:
+            logger.info("Single-project mode - skipping workspace tools")
 
         # Conditionally register performance profiling tools
         if getattr(cfg, "enable_performance_profiling", False):

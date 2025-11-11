@@ -1,0 +1,100 @@
+{
+  "version": "2.0.0",
+  "name": "Example Multi-Project Workspace",
+  "projects": [
+    {
+      "id": "backend",
+      "name": "Backend API",
+      "path": "/home/user/projects/backend",
+      "type": "api_server",
+      "language": ["python"],
+      "dependencies": ["shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "high",
+        "exclude": ["__pycache__", "venv", ".pytest_cache"]
+      },
+      "metadata": {
+        "framework": "FastAPI",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "id": "frontend",
+      "name": "Frontend (Next.js)",
+      "path": "/home/user/projects/frontend",
+      "type": "web_frontend",
+      "language": ["typescript", "tsx"],
+      "dependencies": ["backend", "shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "high",
+        "exclude": ["node_modules", "dist", ".next", "coverage"]
+      },
+      "metadata": {
+        "framework": "Next.js",
+        "version": "14.0.0"
+      }
+    },
+    {
+      "id": "shared",
+      "name": "Shared Library",
+      "path": "/home/user/projects/shared",
+      "type": "library",
+      "language": ["typescript"],
+      "dependencies": [],
+      "indexing": {
+        "enabled": true,
+        "priority": "medium",
+        "exclude": ["node_modules", "dist"]
+      },
+      "metadata": {
+        "description": "Shared types and utilities"
+      }
+    },
+    {
+      "id": "mobile",
+      "name": "Mobile App (React Native)",
+      "path": "/home/user/projects/mobile",
+      "type": "mobile_app",
+      "language": ["typescript", "tsx"],
+      "dependencies": ["backend", "shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "medium",
+        "exclude": ["node_modules", "ios/build", "android/build"]
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "from": "frontend",
+      "to": "backend",
+      "type": "api_client",
+      "description": "Frontend calls backend REST API"
+    },
+    {
+      "from": "mobile",
+      "to": "backend",
+      "type": "api_client",
+      "description": "Mobile app calls backend REST API"
+    },
+    {
+      "from": "frontend",
+      "to": "shared",
+      "type": "imports",
+      "description": "Imports shared TypeScript types"
+    },
+    {
+      "from": "mobile",
+      "to": "shared",
+      "type": "imports",
+      "description": "Imports shared TypeScript types"
+    }
+  ],
+  "search": {
+    "default_scope": "workspace",
+    "cross_project_ranking": true,
+    "relationship_boost": 1.5
+  }
+}

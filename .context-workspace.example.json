@@ -1,0 +1,91 @@
+{
+  "version": "2.0.0",
+  "name": "Example Full-Stack Application",
+  "projects": [
+    {
+      "id": "frontend",
+      "name": "Frontend (React)",
+      "path": "./frontend",
+      "type": "web_frontend",
+      "language": ["typescript", "tsx"],
+      "dependencies": ["backend", "shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "high",
+        "exclude": ["node_modules", "dist", ".next", "coverage"]
+      },
+      "metadata": {
+        "framework": "next.js",
+        "version": "14.0.0"
+      }
+    },
+    {
+      "id": "backend",
+      "name": "Backend (FastAPI)",
+      "path": "./backend",
+      "type": "api_server",
+      "language": ["python"],
+      "dependencies": ["shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "high",
+        "exclude": ["venv", "__pycache__", ".pytest_cache", "*.pyc"]
+      },
+      "metadata": {
+        "framework": "fastapi",
+        "version": "0.104.0"
+      }
+    },
+    {
+      "id": "shared",
+      "name": "Shared Types & Utils",
+      "path": "./shared",
+      "type": "library",
+      "language": ["typescript", "python"],
+      "dependencies": [],
+      "indexing": {
+        "enabled": true,
+        "priority": "critical",
+        "exclude": ["node_modules", "dist"]
+      }
+    },
+    {
+      "id": "docs",
+      "name": "Documentation",
+      "path": "./docs",
+      "type": "documentation",
+      "language": ["markdown"],
+      "dependencies": [],
+      "indexing": {
+        "enabled": true,
+        "priority": "low",
+        "exclude": ["_site", ".jekyll-cache"]
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "from": "frontend",
+      "to": "backend",
+      "type": "api_client",
+      "description": "Frontend calls backend REST API"
+    },
+    {
+      "from": "frontend",
+      "to": "shared",
+      "type": "imports",
+      "description": "Shared TypeScript types and utilities"
+    },
+    {
+      "from": "backend",
+      "to": "shared",
+      "type": "imports",
+      "description": "Shared Python utilities and models"
+    }
+  ],
+  "search": {
+    "default_scope": "workspace",
+    "cross_project_ranking": true,
+    "relationship_boost": 1.5
+  }
+}

@@ -7,6 +7,7 @@ Provides semantic search operations via MCP protocol.
 import sys
 import os
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Union
 
@@ -36,6 +37,8 @@ def register_search_tools(mcp: FastMCP):
         limit: int = 10,
         file_types: Optional[Union[str, List[str]]] = None,
         min_score: float = 0.0,
+        project_id: Optional[str] = None,
+        scope: str = "workspace",
     ) -> Dict[str, Any]:
         """
         Search codebase using natural language query
@@ -43,61 +46,161 @@ def register_search_tools(mcp: FastMCP):
         Performs semantic search over indexed code files using vector embeddings.
         Returns relevant code files ranked by similarity.
 
+        In workspace mode, supports multi-project search with different scope options.
+        In single-project mode, ignores project_id and scope parameters.
+
         Args:
             query: Natural language search query (e.g., "authentication functions")
             limit: Maximum number of results to return (1-100, default: 10)
             file_types: Filter by file extensions (e.g., [".py", ".js"]). Can be a JSON string or list.
             min_score: Minimum similarity score (0.0-1.0, default: 0.0)
+            project_id: Target project ID (workspace mode only, required for project/dependencies/related scopes)
+            scope: Search scope - "project", "dependencies", "workspace", "related" (workspace mode only, default: "workspace")
 
         Returns:
             Dict containing search results with file paths, scores, and snippets
         """
-        logger.info(f"MCP tool invoked: semantic_search with query: {query}")
+        logger.info(f"MCP tool invoked: semantic_search with query: {query}, scope: {scope}, project: {project_id}")
 
         try:
-            # Parse list parameters (handle both JSON strings and actual lists)
-            file_types_list = parse_list_param(file_types)
+            # Check if we're in workspace mode
+            from src.mcp_server.http_server import is_workspace_mode, get_workspace_manager
 
-            # Create search request
-            request = SearchRequest(
-                query=query, limit=limit, file_types=file_types_list, min_score=min_score
-            )
+            if is_workspace_mode():
+                # Workspace-aware search
+                workspace_manager = get_workspace_manager()
 
-            # Perform search
-            response = await search_code(request)
+                # Import workspace search components
+                from src.search.workspace_search import SearchScope, get_workspace_search
 
-            # Format results for MCP
-            formatted_results = []
-            for result in response.results:
-                formatted_result = {
-                    "file_path": result.file_path,
-                    "file_name": result.file_name,
-                    "file_type": result.file_type,
-                    "similarity_score": round(result.similarity_score, 3),
-                    "confidence_score": round(result.confidence_score, 3),
-                    "file_size": result.file_size,
-                    "snippet": (
-                        result.snippet[:200] + "..."
-                        if result.snippet and len(result.snippet) > 200
-                        else result.snippet
-                    ),
+                # Initialize workspace search if needed
+                workspace_search = get_workspace_search()
+                if not workspace_search.workspace_manager:
+                    from src.search.workspace_search import initialize_workspace_search
+                    initialize_workspace_search(
+                        workspace_manager=workspace_manager,
+                        vector_store=None,
+                        relationship_graph=workspace_manager.relationship_graph
+                    )
+                    workspace_search = get_workspace_search()
+
+                # Convert scope string to enum
+                try:
+                    search_scope = SearchScope(scope.lower())
+                except ValueError:
+                    logger.warning(f"Invalid scope '{scope}', defaulting to WORKSPACE")
+                    search_scope = SearchScope.WORKSPACE
+
+                # Parse file types for filters
+                file_types_list = parse_list_param(file_types)
+                filters = None
+                if file_types_list or min_score > 0.0:
+                    from src.search.filters import SearchFilters
+                    filters = SearchFilters(
+                        file_types=file_types_list,
+                        min_score=min_score
+                    )
+
+                # Perform workspace search
+                start_time = time.time()
+                enhanced_results, metrics = await workspace_search.search(
+                    query=query,
+                    scope=search_scope,
+                    project_id=project_id,
+                    limit=limit,
+                    filters=filters
+                )
+                search_time_ms = (time.time() - start_time) * 1000
+
+                # Format results
+                formatted_results = []
+                for result in enhanced_results:
+                    formatted_result = {
+                        "file_path": result.file_path,
+                        "file_name": result.file_name,
+                        "file_type": result.file_type,
+                        "similarity_score": round(result.similarity_score, 3),
+                        "confidence_score": round(result.confidence_score, 3),
+                        "file_size": result.file_size,
+                        "snippet": (
+                            result.snippet[:200] + "..."
+                            if result.snippet and len(result.snippet) > 200
+                            else result.snippet
+                        ),
+                        "project_id": result.project_id,
+                        "project_name": result.project_name,
+                        "relationship_context": result.relationship_context,
+                    }
+                    formatted_results.append(formatted_result)
+
+                result = {
+                    "query": query,
+                    "mode": "workspace",
+                    "scope": scope,
+                    "target_project": project_id,
+                    "total_results": len(enhanced_results),
+                    "returned_results": len(formatted_results),
+                    "search_time_ms": round(search_time_ms, 2),
+                    "results": formatted_results,
+                    "metrics": {
+                        "projects_searched": metrics.projects_searched,
+                        "projects_searched_list": metrics.projects_searched_list,
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-                formatted_results.append(formatted_result)
 
-            result = {
-                "query": response.query,
-                "total_results": response.total_results,
-                "returned_results": len(formatted_results),
-                "search_time_ms": round(response.search_time_ms, 2),
-                "results": formatted_results,
-                "filters_applied": response.filters_applied,
-                "timestamp": response.timestamp,
-            }
+                logger.info(
+                    f"Workspace search completed: {len(enhanced_results)} results in {search_time_ms:.2f}ms "
+                    f"(searched {metrics.projects_searched} projects)"
+                )
+                return result
 
-            logger.info(
-                f"Semantic search completed: {response.total_results} results in {response.search_time_ms:.2f}ms"
-            )
-            return result
+            else:
+                # Single-project mode (existing implementation)
+                # Parse list parameters (handle both JSON strings and actual lists)
+                file_types_list = parse_list_param(file_types)
+
+                # Create search request
+                request = SearchRequest(
+                    query=query, limit=limit, file_types=file_types_list, min_score=min_score
+                )
+
+                # Perform search
+                response = await search_code(request)
+
+                # Format results for MCP
+                formatted_results = []
+                for result in response.results:
+                    formatted_result = {
+                        "file_path": result.file_path,
+                        "file_name": result.file_name,
+                        "file_type": result.file_type,
+                        "similarity_score": round(result.similarity_score, 3),
+                        "confidence_score": round(result.confidence_score, 3),
+                        "file_size": result.file_size,
+                        "snippet": (
+                            result.snippet[:200] + "..."
+                            if result.snippet and len(result.snippet) > 200
+                            else result.snippet
+                        ),
+                    }
+                    formatted_results.append(formatted_result)
+
+                result = {
+                    "query": response.query,
+                    "mode": "single-project",
+                    "total_results": response.total_results,
+                    "returned_results": len(formatted_results),
+                    "search_time_ms": round(response.search_time_ms, 2),
+                    "results": formatted_results,
+                    "filters_applied": response.filters_applied,
+                    "timestamp": response.timestamp,
+                }
+
+                logger.info(
+                    f"Semantic search completed: {response.total_results} results in {response.search_time_ms:.2f}ms"
+                )
+                return result
 
         except Exception as e:
             logger.error(f"Error in semantic search: {e}", exc_info=True)

@@ -1,0 +1,176 @@
+{
+  "$schema": "https://context-engine.dev/schemas/workspace-config.json",
+  "version": "2.0.0",
+  "name": "My Full-Stack App",
+  "projects": [
+    {
+      "id": "frontend",
+      "name": "Frontend (React)",
+      "path": "/home/user/projects/myapp-frontend",
+      "type": "web_frontend",
+      "language": ["typescript", "tsx"],
+      "dependencies": ["backend", "shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "high",
+        "exclude": ["node_modules", "dist", ".next", "coverage"]
+      },
+      "metadata": {
+        "framework": "next.js",
+        "version": "14.0.0",
+        "port": 3000,
+        "description": "Next.js frontend with React 18"
+      }
+    },
+    {
+      "id": "backend",
+      "name": "Backend (FastAPI)",
+      "path": "/home/user/projects/myapp-backend",
+      "type": "api_server",
+      "language": ["python"],
+      "dependencies": ["shared", "database"],
+      "indexing": {
+        "enabled": true,
+        "priority": "high",
+        "exclude": ["venv", "__pycache__", ".pytest_cache", "*.pyc"]
+      },
+      "metadata": {
+        "framework": "fastapi",
+        "version": "0.104.0",
+        "port": 8000,
+        "description": "FastAPI backend with async support"
+      }
+    },
+    {
+      "id": "shared",
+      "name": "Shared Types & Utils",
+      "path": "/home/user/projects/myapp-shared",
+      "type": "library",
+      "language": ["typescript", "python"],
+      "dependencies": [],
+      "indexing": {
+        "enabled": true,
+        "priority": "critical",
+        "exclude": ["node_modules", "dist"]
+      },
+      "metadata": {
+        "description": "Shared types and utilities used by both frontend and backend"
+      }
+    },
+    {
+      "id": "database",
+      "name": "Database Migrations",
+      "path": "/home/user/projects/myapp-database",
+      "type": "library",
+      "language": ["sql", "python"],
+      "dependencies": [],
+      "indexing": {
+        "enabled": true,
+        "priority": "medium",
+        "exclude": ["*.log"]
+      },
+      "metadata": {
+        "database": "postgresql",
+        "description": "Database schema and migration scripts"
+      }
+    },
+    {
+      "id": "mobile",
+      "name": "Mobile App (React Native)",
+      "path": "/home/user/projects/myapp-mobile",
+      "type": "mobile_app",
+      "language": ["typescript", "tsx"],
+      "dependencies": ["backend", "shared"],
+      "indexing": {
+        "enabled": true,
+        "priority": "medium",
+        "exclude": ["node_modules", "android/build", "ios/build", ".expo"]
+      },
+      "metadata": {
+        "framework": "react-native",
+        "platforms": ["ios", "android"],
+        "description": "React Native mobile app"
+      }
+    },
+    {
+      "id": "docs",
+      "name": "Documentation",
+      "path": "/home/user/projects/myapp-docs",
+      "type": "documentation",
+      "language": ["markdown"],
+      "dependencies": [],
+      "indexing": {
+        "enabled": true,
+        "priority": "low",
+        "exclude": ["node_modules", ".docusaurus"]
+      },
+      "metadata": {
+        "generator": "docusaurus",
+        "description": "Project documentation and guides"
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "from": "frontend",
+      "to": "backend",
+      "type": "api_client",
+      "description": "Frontend calls backend REST API",
+      "metadata": {
+        "protocol": "REST",
+        "base_url": "http://localhost:8000/api"
+      }
+    },
+    {
+      "from": "frontend",
+      "to": "shared",
+      "type": "imports",
+      "description": "Shared TypeScript types and utilities",
+      "metadata": {
+        "import_path": "@myapp/shared"
+      }
+    },
+    {
+      "from": "backend",
+      "to": "shared",
+      "type": "imports",
+      "description": "Shared Python utilities and models",
+      "metadata": {
+        "import_path": "myapp_shared"
+      }
+    },
+    {
+      "from": "backend",
+      "to": "database",
+      "type": "shared_database",
+      "description": "Backend uses database schema and migrations",
+      "metadata": {
+        "connection_string": "postgresql://localhost:5432/myapp"
+      }
+    },
+    {
+      "from": "mobile",
+      "to": "backend",
+      "type": "api_client",
+      "description": "Mobile app calls backend REST API",
+      "metadata": {
+        "protocol": "REST",
+        "base_url": "https://api.myapp.com"
+      }
+    },
+    {
+      "from": "mobile",
+      "to": "shared",
+      "type": "imports",
+      "description": "Shared TypeScript types",
+      "metadata": {
+        "import_path": "@myapp/shared"
+      }
+    }
+  ],
+  "search": {
+    "default_scope": "workspace",
+    "cross_project_ranking": true,
+    "relationship_boost": 1.5
+  }
+}

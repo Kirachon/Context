@@ -34,6 +34,8 @@ import sys
 import os
 import logging
 import uvicorn
+from pathlib import Path
+from typing import Optional
 
 # Prefer PYTHONPATH from environment; fall back to repo root if running in Docker
 if '/app' not in sys.path:
@@ -46,18 +48,99 @@ from src.logging.manager import configure_logging
 configure_logging(level=settings.log_level, fmt=settings.log_format, use_stderr=False)
 logger = logging.getLogger(__name__)
 
+# Global workspace manager instance (None in single-project mode)
+_workspace_manager: Optional["WorkspaceManager"] = None
+
+
+def get_workspace_manager() -> Optional["WorkspaceManager"]:
+    """
+    Get the global workspace manager instance
+
+    Returns:
+        WorkspaceManager instance if in workspace mode, None otherwise
+    """
+    return _workspace_manager
+
+
+def is_workspace_mode() -> bool:
+    """
+    Check if server is running in workspace mode
+
+    Returns:
+        True if workspace mode is active, False for single-project mode
+    """
+    return _workspace_manager is not None
+
+
+def get_project(project_id: str):
+    """
+    Get a specific project from the workspace
+
+    Args:
+        project_id: Project identifier
+
+    Returns:
+        Project instance or None
+    """
+    if _workspace_manager:
+        return _workspace_manager.get_project(project_id)
+    return None
+
 
 async def initialize_services():
     """
     Initialize critical services during MCP server startup
 
-    This is identical to stdio_full_mcp.py initialization but runs once
-    for the persistent HTTP server instead of per-connection.
+    Detects workspace mode via .context-workspace.json and initializes accordingly:
+    - Workspace mode: Initialize WorkspaceManager for multi-project support
+    - Single-project mode: Use existing initialization (backwards compatible)
 
     Returns:
-        bool: True if Qdrant initialization successful
+        Optional[WorkspaceManager]: WorkspaceManager instance if in workspace mode, None otherwise
     """
     fast_startup = os.environ.get("FAST_STARTUP", "").lower() == "true"
+
+    # Check for workspace configuration file
+    workspace_file = Path.cwd() / ".context-workspace.json"
+
+    if workspace_file.exists():
+        # NEW: Workspace mode - multi-project support
+        logger.info("Detected .context-workspace.json - initializing in WORKSPACE MODE")
+
+        try:
+            # Import workspace manager only when needed
+            from src.workspace.manager import WorkspaceManager
+
+            workspace_manager = WorkspaceManager(str(workspace_file))
+
+            # Initialize workspace (lazy_load=False for full initialization)
+            # In FAST_STARTUP mode, we still initialize but may skip indexing
+            success = await workspace_manager.initialize(lazy_load=fast_startup)
+
+            if success:
+                logger.info("✅ Workspace initialized successfully")
+
+                # In non-fast mode, start indexing and monitoring
+                if not fast_startup:
+                    logger.info("Starting workspace indexing and monitoring...")
+                    # Index all projects
+                    await workspace_manager.index_all_projects(parallel=True)
+                    logger.info("✅ Workspace indexing complete")
+                else:
+                    logger.info("⚡ FAST_STARTUP: Skipping workspace indexing (will lazy-load on first use)")
+
+                return workspace_manager
+            else:
+                logger.error("❌ Workspace initialization failed - falling back to single-project mode")
+                # Fall through to single-project initialization
+
+        except Exception as e:
+            logger.error(f"❌ Error initializing workspace: {e}", exc_info=True)
+            logger.warning("Falling back to single-project mode")
+            # Fall through to single-project initialization
+
+    # OLD: Single-project mode (backwards compatible)
+    logger.info("Initializing in SINGLE-PROJECT MODE (no workspace detected)")
 
     if fast_startup:
         logger.info("FAST_STARTUP mode: performing minimal initialization for CI")
@@ -131,7 +214,7 @@ async def initialize_services():
         if fast_startup:
             logger.info("⚡ FAST_STARTUP: Skipping embeddings and file monitor (will lazy-load on first use)")
             logger.info("Service initialization complete (fast mode)")
-            return qdrant_connected
+            return None  # Single-project mode returns None
 
         # 3) Initialize embeddings explicitly so the queue can run immediately
         try:
@@ -168,14 +251,14 @@ async def initialize_services():
         except Exception as ie:
             logger.warning("Initial indexing kick-off failed; background monitor may still pick up changes: %s", ie, exc_info=True)
 
-        logger.info("Service initialization complete")
-        return qdrant_connected
+        logger.info("Service initialization complete (single-project mode)")
+        return None  # Single-project mode returns None
 
     except Exception as e:
         logger.error(f"❌ Failed to initialize services: {e}", exc_info=True)
         logger.warning("MCP server will start but vector search tools may not work")
         logger.warning("Check that Qdrant is running on port 6333")
-        return False
+        return None  # Return None on error (single-project mode fallback)
 
 
 def create_app():
@@ -188,6 +271,8 @@ def create_app():
     Returns:
         ASGI application instance
     """
+    global _workspace_manager
+
     logger.info("Creating HTTP MCP server application...")
     logger.info(f"Server: {settings.mcp_server_name} v{settings.mcp_server_version}")
 
@@ -206,12 +291,17 @@ def create_app():
         asyncio.set_event_loop(loop)
 
     try:
-        success = loop.run_until_complete(initialize_services())
-        if not success:
-            logger.warning("Service initialization incomplete, continuing anyway...")
+        workspace_or_none = loop.run_until_complete(initialize_services())
+        _workspace_manager = workspace_or_none
+
+        if _workspace_manager:
+            logger.info("✅ HTTP server initialized in WORKSPACE MODE")
+        else:
+            logger.info("✅ HTTP server initialized in SINGLE-PROJECT MODE")
     except Exception as e:
         logger.error(f"Service initialization failed: {e}", exc_info=True)
         logger.warning("Continuing without full service initialization...")
+        _workspace_manager = None
 
     # Use the GLOBAL MCP server instance
     logger.info("Creating MCP server instance...")
