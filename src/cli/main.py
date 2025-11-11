@@ -8,23 +8,26 @@ from __future__ import annotations
 
 import click
 
+from src.cli.multifile import multifile_cli
 from src.cli.workspace import workspace_cli
 
 
 @click.group()
-@click.version_option(version="2.0.0", prog_name="context")
+@click.version_option(version="3.0.0", prog_name="context")
 def cli():
     """
-    Context - Codebase Intelligence Platform
+    Context - Codebase Intelligence Platform v3.0
 
     Manage multi-project workspaces with intelligent indexing,
-    relationship tracking, and cross-project search.
+    relationship tracking, cross-project search, multi-file editing,
+    and automated PR generation.
     """
     pass
 
 
 # Register subcommands
 cli.add_command(workspace_cli, name="workspace")
+cli.add_command(multifile_cli, name="edit")
 
 
 def main():
