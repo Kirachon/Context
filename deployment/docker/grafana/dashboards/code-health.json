@@ -1,0 +1,305 @@
+{
+  "id": null,
+  "uid": "code-health",
+  "title": "Context - Code Health Metrics",
+  "tags": ["context", "code-health", "quality"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "gauge",
+      "title": "Dead Code Percentage",
+      "description": "Files never accessed in last 30 days",
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 8, "h": 6},
+      "targets": [
+        {
+          "expr": "avg(dead_code_percentage)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 20, "color": "yellow"},
+              {"value": 40, "color": "orange"},
+              {"value": 60, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Index Coverage",
+      "description": "Percentage of files indexed vs total files",
+      "id": 2,
+      "gridPos": {"x": 8, "y": 0, "w": 8, "h": 6},
+      "targets": [
+        {
+          "expr": "avg(index_coverage_percentage)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 60, "color": "yellow"},
+              {"value": 80, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Hot Spots (10x+ avg access)",
+      "description": "Files accessed 10x more than average",
+      "id": 3,
+      "gridPos": {"x": 16, "y": 0, "w": 8, "h": 6},
+      "targets": [
+        {
+          "expr": "sum(hot_spots_count{threshold=\"10x\"})",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        },
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 10, "color": "yellow"},
+              {"value": 50, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Dead Code Trend by Project",
+      "id": 4,
+      "gridPos": {"x": 0, "y": 6, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "dead_code_percentage",
+          "refId": "A",
+          "legendFormat": "{{project_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Index Coverage Trend",
+      "id": 5,
+      "gridPos": {"x": 12, "y": 6, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "index_coverage_percentage",
+          "refId": "A",
+          "legendFormat": "{{project_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Dead Code Files (Never Accessed)",
+      "description": "Files not accessed in last 30 days",
+      "id": 6,
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 10},
+      "targets": [
+        {
+          "expr": "topk(50, file_access_total == 0)",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "file_path": "File Path",
+              "project_id": "Project"
+            },
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Hot Spot Files (Frequently Accessed)",
+      "description": "Most frequently accessed files",
+      "id": 7,
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 10},
+      "targets": [
+        {
+          "expr": "topk(50, sum(increase(file_access_total[7d])) by (file_path, project_id))",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "file_path": "File Path",
+              "project_id": "Project",
+              "Value": "Access Count (7d)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Code Health Score by Project",
+      "description": "Composite score: (100 - dead_code%) * (coverage% / 100)",
+      "id": 8,
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "(100 - dead_code_percentage) * (index_coverage_percentage / 100)",
+          "refId": "A",
+          "legendFormat": "{{project_id}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 50, "color": "orange"},
+              {"value": 70, "color": "yellow"},
+              {"value": 85, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Code Duplication",
+      "description": "Percentage of duplicated code detected",
+      "id": 9,
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "avg(code_duplication_percentage)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 10, "color": "yellow"},
+              {"value": 20, "color": "orange"},
+              {"value": 30, "color": "red"}
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -48,6 +48,28 @@ services:
     networks:
       - context-network
 
+  # TimescaleDB - Time-series metrics storage for analytics
+  timescale:
+    image: timescale/timescaledb:latest-pg15
+    container_name: context-timescale
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TIMESCALE_DB:-context_analytics}
+      POSTGRES_USER: ${TIMESCALE_USER:-context}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-password}
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./timescale/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U context -d context_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - context-network
+
   # Redis - Caching and session management
   redis:
     image: redis:7.2-alpine
@@ -241,6 +263,8 @@ volumes:
   qdrant_data:
     driver: local
   postgres_data:
+    driver: local
+  timescale_data:
     driver: local
   redis_data:
     driver: local

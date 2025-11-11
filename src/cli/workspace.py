@@ -634,6 +634,183 @@ def validate(workspace_file: str) -> None:
         error(f"Validation failed: {e}")
 
 
+@workspace_cli.command(name="discover")
+@click.argument("path", required=False, default=".")
+@click.option("--workspace", default=".context-workspace.json", help="Path to workspace config file")
+@click.option("--max-depth", type=int, default=10, help="Maximum directory depth to scan")
+@click.option("--name", help="Workspace name (auto-generated if not provided)")
+@click.option("--interactive/--no-interactive", default=True, help="Interactive confirmation")
+@click.option("--json-output", "--json", is_flag=True, help="Output as JSON")
+def discover(
+    path: str,
+    workspace: str,
+    max_depth: int,
+    name: Optional[str],
+    interactive: bool,
+    json_output: bool,
+) -> None:
+    """Auto-discover projects in directory and generate workspace configuration"""
+    try:
+        from src.workspace.auto_discovery import (
+            ProjectScanner,
+            TypeClassifier,
+            DependencyAnalyzer,
+            ConfigGenerator,
+        )
+
+        search_path = Path(path).resolve()
+        workspace_path = Path(workspace)
+
+        # Validate path
+        if not search_path.exists():
+            error(f"Path does not exist: {path}")
+        if not search_path.is_dir():
+            error(f"Path is not a directory: {path}")
+
+        # Check if workspace file already exists
+        if workspace_path.exists() and not json_output:
+            if not click.confirm(
+                f"Workspace configuration already exists at {workspace}. Overwrite?"
+            ):
+                error("Aborted", exit_code=0)
+
+        console.print(f"\n[bold blue]🔍 Scanning {search_path} for projects...[/bold blue]\n")
+
+        # Step 1: Scan for projects
+        with console.status("[bold green]Scanning directories..."):
+            scanner = ProjectScanner(max_depth=max_depth)
+            discovered = scanner.scan(str(search_path))
+            stats = scanner.get_stats()
+
+        if not discovered:
+            warning(f"No projects found in {search_path}")
+            console.print("\nTry:")
+            console.print("  - Increasing max depth: --max-depth 15")
+            console.print("  - Scanning a different directory")
+            return
+
+        console.print(
+            f"[green]✓[/green] Found {len(discovered)} project(s) "
+            f"({stats['directories_scanned']} directories scanned "
+            f"in {stats['scan_duration_seconds']:.2f}s)\n"
+        )
+
+        # Step 2: Classify projects
+        with console.status("[bold green]Classifying project types..."):
+            classifier = TypeClassifier()
+            for project in discovered:
+                classifier.classify(project)
+
+        # Step 3: Analyze dependencies
+        with console.status("[bold green]Analyzing dependencies..."):
+            analyzer = DependencyAnalyzer()
+            discovered, relations = analyzer.analyze(discovered)
+
+        # Step 4: Generate configuration
+        generator = ConfigGenerator()
+        config = generator.generate(
+            projects=discovered,
+            relations=relations,
+            workspace_name=name,
+            base_path=str(search_path),
+        )
+
+        # Output results
+        if json_output:
+            output = {
+                "workspace_name": config.name,
+                "projects_found": len(discovered),
+                "projects": [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "path": p.path,
+                        "type": p.type,
+                        "confidence": discovered[idx].confidence,
+                        "framework": discovered[idx].framework,
+                        "languages": p.language,
+                        "dependencies": p.dependencies,
+                    }
+                    for idx, p in enumerate(config.projects)
+                ],
+                "relationships": [
+                    {
+                        "from": r.from_project,
+                        "to": r.to_project,
+                        "type": r.type,
+                        "description": r.description,
+                    }
+                    for r in config.relationships
+                ],
+            }
+            print(json.dumps(output, indent=2))
+            return
+
+        # Display discovered projects
+        console.print(Panel(
+            f"[bold]{config.name}[/bold]\n"
+            f"Discovered [cyan]{len(discovered)}[/cyan] projects",
+            title="Workspace Discovery",
+            border_style="blue"
+        ))
+
+        # Create projects table
+        table = Table(title="Discovered Projects", show_header=True, header_style="bold cyan")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("ID", style="cyan")
+        table.add_column("Type", style="magenta")
+        table.add_column("Confidence", style="yellow", justify="right")
+        table.add_column("Framework", style="green")
+        table.add_column("Languages", style="blue")
+        table.add_column("Dependencies", style="white")
+
+        for idx, (project, config_proj) in enumerate(zip(discovered, config.projects), 1):
+            confidence_str = f"{project.confidence * 100:.0f}%"
+            confidence_color = "green" if project.confidence >= 0.8 else "yellow" if project.confidence >= 0.6 else "red"
+
+            table.add_row(
+                str(idx),
+                config_proj.id,
+                project.type.value,
+                f"[{confidence_color}]{confidence_str}[/{confidence_color}]",
+                project.framework or "—",
+                ", ".join(project.detected_languages[:3]) if project.detected_languages else "—",
+                ", ".join(project.detected_dependencies[:3]) if project.detected_dependencies else "—",
+            )
+
+        console.print("\n")
+        console.print(table)
+
+        # Show relationships if any
+        if config.relationships:
+            console.print(f"\n[bold]Relationships Detected:[/bold] {len(config.relationships)}")
+            for rel in config.relationships[:5]:  # Show first 5
+                console.print(f"  • {rel.from_project} → {rel.to_project} ([dim]{rel.type}[/dim])")
+            if len(config.relationships) > 5:
+                console.print(f"  ... and {len(config.relationships) - 5} more")
+
+        # Interactive confirmation
+        if interactive:
+            console.print("\n")
+            if not click.confirm(f"Save workspace configuration to {workspace_path}?", default=True):
+                error("Aborted", exit_code=0)
+
+        # Save configuration
+        config.save(workspace_path)
+        success(f"Workspace configuration saved to {workspace_path.absolute()}")
+
+        # Show next steps
+        console.print("\n[bold]Next Steps:[/bold]")
+        console.print("  1. Review configuration: [cyan]context workspace list --verbose[/cyan]")
+        console.print("  2. Adjust if needed: Edit .context-workspace.json")
+        console.print("  3. Index projects: [cyan]context workspace index[/cyan]")
+        console.print("  4. Search workspace: [cyan]context workspace search 'your query'[/cyan]")
+
+    except Exception as e:
+        import traceback
+        error(f"Discovery failed: {e}\n{traceback.format_exc()}")
+
+
 @workspace_cli.command(name="migrate")
 @click.option("--from", "from_path", required=True, help="Path to old single-folder project")
 @click.option("--name", required=True, help="Name for the project in workspace")

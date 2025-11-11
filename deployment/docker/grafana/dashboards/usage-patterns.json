@@ -1,0 +1,284 @@
+{
+  "id": null,
+  "uid": "usage-patterns",
+  "title": "Context - Usage Patterns",
+  "tags": ["context", "usage", "analytics"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Users (5m)",
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "active_users{time_window=\"5m\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active Users (1h)",
+      "id": 2,
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "active_users{time_window=\"1h\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active Users (24h)",
+      "id": 3,
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "active_users{time_window=\"24h\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Queries (24h)",
+      "id": 4,
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(increase(search_requests_total[24h]))",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Active Users Over Time",
+      "id": 5,
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "active_users{time_window=\"5m\"}",
+          "refId": "A",
+          "legendFormat": "5 minute window"
+        },
+        {
+          "expr": "active_users{time_window=\"1h\"}",
+          "refId": "B",
+          "legendFormat": "1 hour window"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queries per User Distribution",
+      "id": 6,
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(queries_per_user_sum[5m]) / rate(queries_per_user_count[5m])",
+          "refId": "A",
+          "legendFormat": "Average Queries/User"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Most Searched Files (24h)",
+      "id": 7,
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 10},
+      "targets": [
+        {
+          "expr": "topk(20, sum(increase(file_access_total[24h])) by (file_path, project_id))",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "file_path": "File Path",
+              "project_id": "Project",
+              "Value": "Access Count"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top Query Terms (24h)",
+      "id": 8,
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 10},
+      "targets": [
+        {
+          "expr": "topk(20, sum(increase(query_terms_total[24h])) by (term))",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "term": "Query Term",
+              "Value": "Frequency"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Query Activity by Project",
+      "id": 9,
+      "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(increase(search_requests_total[24h])) by (project_id)",
+          "refId": "A",
+          "legendFormat": "{{project_id}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {"value": 0, "color": "blue"},
+              {"value": 50, "color": "green"},
+              {"value": 80, "color": "yellow"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "heatmap",
+      "title": "Query Activity Heatmap (by hour)",
+      "id": 10,
+      "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(increase(search_requests_total[1h])) by (hour)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "calculate": true,
+        "calculation": {},
+        "cellGap": 2,
+        "color": {
+          "mode": "scheme",
+          "scheme": "Spectral",
+          "steps": 128
+        },
+        "yAxis": {
+          "decimals": 0
+        }
+      }
+    }
+  ]
+}
