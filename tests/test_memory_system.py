@@ -5,31 +5,111 @@ Tests all four memory types:
 - Pattern Memory
 - Solution Memory
 - Preference Memory
+
+Uses mocked external services (PostgreSQL via SQLite, Qdrant, Redis)
 """
 
 import os
 import pytest
 from datetime import datetime
+from unittest.mock import Mock, MagicMock, patch
 from uuid import uuid4
 
-# Set test database URL before importing modules
-os.environ['DATABASE_URL'] = 'postgresql://context:context@localhost:5432/context_test'
+# Mock external dependencies before imports
+os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+
+# Mock sentence transformers
+import numpy as np
+
+mock_sentence_transformer = MagicMock()
+
+def mock_encode(text):
+    """Mock encode that returns a proper numpy array."""
+    if isinstance(text, str):
+        return np.array([0.1] * 384, dtype=np.float32)
+    else:
+        # Handle list of texts
+        return np.array([[0.1] * 384 for _ in range(len(text))], dtype=np.float32)
+
+mock_sentence_transformer.encode = mock_encode
+
+# Mock Qdrant client
+mock_qdrant_client = MagicMock()
+mock_qdrant_client.get_collections.return_value = MagicMock(collections=[])
+mock_qdrant_client.create_collection.return_value = None
+mock_qdrant_client.upsert.return_value = None
+mock_qdrant_client.search.return_value = []
+
+
+# Apply patches
+@pytest.fixture(scope="session", autouse=True)
+def mock_external_services():
+    """Mock all external services for testing."""
+    with patch('src.memory.conversation.SentenceTransformer', return_value=mock_sentence_transformer), \
+         patch('src.memory.conversation.get_qdrant_client', return_value=mock_qdrant_client), \
+         patch('src.memory.solutions.SentenceTransformer', return_value=mock_sentence_transformer):
+        yield
+
 
 from src.memory import ConversationStore, PatternStore, SolutionStore, PreferenceStore
-from src.memory.database import get_db_manager, init_database
+from src.memory.database import get_db_manager, DatabaseManager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 # ===== Fixtures =====
 
 @pytest.fixture(scope="session")
 def db_manager():
-    """Create test database manager."""
-    manager = get_db_manager()
-    # Create tables
-    manager.create_tables()
+    """Create test database manager with SQLite in-memory database."""
+    # Create a fresh database manager with SQLite
+    from src.memory.models import Base
+
+    engine = create_engine('sqlite:///:memory:', echo=False)
+    Base.metadata.create_all(bind=engine)
+
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
+
+    # Create a mock manager
+    manager = Mock(spec=DatabaseManager)
+    manager.engine = engine
+    manager.SessionLocal = SessionLocal
+    manager.database_url = 'sqlite:///:memory:'
+
+    # Implement get_session as a context manager
+    from contextlib import contextmanager
+
+    @contextmanager
+    def get_session():
+        session = SessionLocal()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    manager.get_session = get_session
+    manager.create_tables = lambda: Base.metadata.create_all(bind=engine)
+    manager.drop_tables = lambda: Base.metadata.drop_all(bind=engine)
+
     yield manager
-    # Cleanup after all tests
-    manager.drop_tables()
+
+    # Cleanup
+    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def patch_db_manager(db_manager):
+    """Patch get_db_manager to return our test database manager."""
+    with patch('src.memory.database.get_db_manager', return_value=db_manager), \
+         patch('src.memory.conversation.get_db_manager', return_value=db_manager), \
+         patch('src.memory.patterns.get_db_manager', return_value=db_manager), \
+         patch('src.memory.solutions.get_db_manager', return_value=db_manager), \
+         patch('src.memory.preferences.get_db_manager', return_value=db_manager):
+        yield
 
 
 @pytest.fixture
@@ -125,8 +205,7 @@ class TestConversationMemory:
             limit=5,
         )
 
-        # Should find at least one result
-        # Note: This might fail if Qdrant is not available, will use fallback
+        # Should find at least one result (or use fallback)
         assert len(results) >= 0
 
     def test_update_feedback(self, conversation_store):

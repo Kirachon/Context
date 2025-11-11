@@ -198,7 +198,7 @@ class EntityExtractor:
     ERROR_PATTERN = re.compile(
         r'(TypeError|ValueError|AttributeError|KeyError|IndexError|'
         r'NameError|SyntaxError|RuntimeError|ImportError|FileNotFoundError|'
-        r'Exception|Error):\s*[^\n]+'
+        r'Exception|Error)'
     )
 
     IDENTIFIER_PATTERN = re.compile(
@@ -318,16 +318,39 @@ class EntityExtractor:
         common_words = {
             'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
             'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
-            'fix', 'bug', 'error', 'how', 'what', 'why', 'when', 'where', 'which'
+            'fix', 'bug', 'error', 'how', 'what', 'why', 'when', 'where', 'which',
+            'function', 'method', 'class', 'module', 'file'
         }
+
+        # Code context keywords that indicate nearby words are likely code identifiers
+        code_keywords = ['function', 'method', 'class', 'module', 'variable', 'constant']
+        prompt_lower = prompt.lower()
+
+        # Find identifiers near code keywords (before or after)
+        identifiers_near_keywords = set()
+        for keyword in code_keywords:
+            if keyword in prompt_lower:
+                # Extract words after the keyword: "function authenticate"
+                pattern_after = rf'{keyword}\s+(\w+)'
+                matches = re.finditer(pattern_after, prompt_lower)
+                for match in matches:
+                    identifiers_near_keywords.add(match.group(1))
+
+                # Extract words before the keyword: "authenticate function"
+                pattern_before = rf'(\w+)\s+{keyword}'
+                matches = re.finditer(pattern_before, prompt_lower)
+                for match in matches:
+                    identifiers_near_keywords.add(match.group(1))
 
         for identifier in potential_identifiers:
             if identifier.lower() in common_words:
                 continue
 
-            # Only include if it looks like a code identifier
-            # (camelCase, snake_case, or has uppercase letters)
-            if '_' in identifier or any(c.isupper() for c in identifier[1:]):
+            # Include if it looks like a code identifier or is near a code keyword
+            # (camelCase, snake_case, has uppercase letters, or near code keywords)
+            if ('_' in identifier or
+                any(c.isupper() for c in identifier[1:]) or
+                identifier.lower() in identifiers_near_keywords):
                 entities.append(Entity(
                     text=identifier,
                     type=EntityType.IDENTIFIER,

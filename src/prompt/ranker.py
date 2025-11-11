@@ -35,8 +35,8 @@ def get_embedding_model():
         try:
             from sentence_transformers import SentenceTransformer
             _embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        except ImportError:
-            # If not installed, use dummy model
+        except Exception:
+            # If not installed or model download fails, use dummy model
             _embedding_model = None
     return _embedding_model
 

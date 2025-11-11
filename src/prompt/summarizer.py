@@ -28,8 +28,8 @@ def get_tiktoken_encoding():
         try:
             import tiktoken
             _tiktoken_encoding = tiktoken.get_encoding("cl100k_base")
-        except ImportError:
-            # Fallback: estimate tokens as words / 0.75
+        except Exception:
+            # Fallback: estimate tokens as words / 0.75 if tiktoken unavailable or download fails
             _tiktoken_encoding = None
     return _tiktoken_encoding
 

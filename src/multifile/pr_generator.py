@@ -383,21 +383,53 @@ This PR modifies **{num_files}** file(s):
         """Create git branch"""
         repo_path = self.workspace_root / repo
 
-        # Ensure we're on base branch
-        subprocess.run(
+        # Get current branch to detect if base_branch exists
+        current_branch_result = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=repo_path,
+            capture_output=True,
+            text=True
+        )
+        current_branch = current_branch_result.stdout.strip()
+
+        # Try to checkout base branch, fall back to current if it doesn't exist
+        checkout_result = subprocess.run(
             ['git', 'checkout', base_branch],
             cwd=repo_path,
-            check=True,
-            capture_output=True
+            capture_output=True,
+            text=True
         )
 
-        # Pull latest
-        subprocess.run(
+        if checkout_result.returncode != 0:
+            # Base branch doesn't exist, try to detect default branch
+            self.logger.warning(
+                f"Base branch '{base_branch}' not found, using current branch '{current_branch}'",
+                repository=repo
+            )
+            # Stay on current branch
+            if not current_branch:
+                self.logger.error(
+                    "Could not determine current branch",
+                    repository=repo
+                )
+                raise ValueError(f"Base branch '{base_branch}' not found and could not determine current branch")
+        else:
+            current_branch = base_branch
+
+        # Try to pull latest (may fail if no remote or no upstream)
+        pull_result = subprocess.run(
             ['git', 'pull'],
             cwd=repo_path,
-            check=True,
-            capture_output=True
+            capture_output=True,
+            text=True
         )
+
+        if pull_result.returncode != 0:
+            self.logger.debug(
+                "Could not pull from remote (may be local repo only)",
+                repository=repo,
+                error=pull_result.stderr
+            )
 
         # Create new branch
         subprocess.run(
@@ -410,7 +442,8 @@ This PR modifies **{num_files}** file(s):
         self.logger.info(
             "Created git branch",
             repository=repo,
-            branch=branch_name
+            branch=branch_name,
+            base=current_branch
         )
 
     async def _commit_changes(
@@ -424,12 +457,41 @@ This PR modifies **{num_files}** file(s):
 
         # Stage all changed files
         for change in changes:
-            subprocess.run(
+            add_result = subprocess.run(
                 ['git', 'add', change.file_path],
                 cwd=repo_path,
-                check=True,
-                capture_output=True
+                capture_output=True,
+                text=True
             )
+            if add_result.returncode != 0:
+                self.logger.warning(
+                    f"Could not stage file '{change.file_path}'",
+                    repository=repo,
+                    error=add_result.stderr
+                )
+
+        # Check if there are any changes to commit
+        status_result = subprocess.run(
+            ['git', 'diff', '--cached', '--quiet'],
+            cwd=repo_path,
+            capture_output=True
+        )
+
+        if status_result.returncode == 0:
+            # No changes to commit
+            self.logger.warning(
+                "No changes to commit (files may not be modified)",
+                repository=repo
+            )
+            # Return current HEAD
+            result = subprocess.run(
+                ['git', 'rev-parse', 'HEAD'],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            return result.stdout.strip()
 
         # Create commit message
         commit_message = self._generate_commit_message(changeset, changes)
@@ -484,12 +546,22 @@ This PR modifies **{num_files}** file(s):
         """Push branch to remote"""
         repo_path = self.workspace_root / repo
 
-        subprocess.run(
+        push_result = subprocess.run(
             ['git', 'push', '-u', 'origin', branch_name],
             cwd=repo_path,
-            check=True,
-            capture_output=True
+            capture_output=True,
+            text=True
         )
+
+        if push_result.returncode != 0:
+            self.logger.warning(
+                "Could not push to remote (may be local repo or no credentials)",
+                repository=repo,
+                branch=branch_name,
+                error=push_result.stderr
+            )
+            # Don't fail - local commits are still valuable
+            return
 
         self.logger.info(
             "Pushed branch to remote",

@@ -6,10 +6,12 @@ import pytest
 import asyncio
 import tempfile
 import os
+import subprocess
 from pathlib import Path
 
 from src.agents.models import (
     AgentContext,
+    AgentResult,
     Task,
     TaskStatus,
     ExecutionPlan,
@@ -463,7 +465,9 @@ class TestIntegration:
     async def test_end_to_end_workflow(self, agent_context):
         """Test complete end-to-end agent workflow"""
         # Create a git repository in the temp workspace
-        os.system(f"cd {agent_context.workspace_path} && git init")
+        subprocess.run(["git", "init"], cwd=agent_context.workspace_path, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=agent_context.workspace_path, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=agent_context.workspace_path, check=True, capture_output=True)
 
         orchestrator = AgentOrchestrator(agent_context, mode="autonomous")
 

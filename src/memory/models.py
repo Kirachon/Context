@@ -21,12 +21,58 @@ from sqlalchemy import (
     Text,
     Index,
     text,
+    JSON,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator, CHAR
+import uuid as uuid_lib
 
 Base = declarative_base()
+
+
+# Custom UUID type that works with SQLite and PostgreSQL
+class UUID(TypeDecorator):
+    """Platform-independent UUID type.
+
+    Uses PostgreSQL's UUID type when available, otherwise uses CHAR(36).
+    """
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value
+        else:
+            if isinstance(value, uuid_lib.UUID):
+                return str(value)
+            return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value
+        else:
+            if isinstance(value, uuid_lib.UUID):
+                return value
+            return uuid_lib.UUID(value)
+
+
+# Custom JSON type that works with SQLite and PostgreSQL
+def JSONType():
+    """Return JSONB for PostgreSQL, JSON for others."""
+    # This will be resolved at runtime based on the dialect
+    return JSON().with_variant(JSONB(), 'postgresql')
 
 
 class Conversation(Base):
@@ -38,18 +84,16 @@ class Conversation(Base):
 
     __tablename__ = "conversations"
 
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[uuid_lib.UUID] = mapped_column(
+        UUID(),
         primary_key=True,
-        default=uuid4,
-        server_default=text("gen_random_uuid()")
+        default=uuid4
     )
     user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         default=datetime.utcnow,
-        server_default=text("NOW()"),
         index=True
     )
 
@@ -60,22 +104,22 @@ class Conversation(Base):
 
     # Analysis
     intent: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
-    entities: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    entities: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
 
     # Feedback
-    feedback: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    feedback: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
     resolution: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     helpful_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # Metadata
     token_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    context_sources: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    context_sources: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
 
     __table_args__ = (
-        Index("idx_user_timestamp", "user_id", "timestamp"),
-        Index("idx_intent", "intent"),
-        Index("idx_timestamp", "timestamp"),
+        Index("idx_conversations_user_timestamp", "user_id", "timestamp"),
+        Index("idx_conversations_intent", "intent"),
+        Index("idx_conversations_timestamp", "timestamp"),
     )
 
     def __repr__(self) -> str:
@@ -91,11 +135,10 @@ class CodePattern(Base):
 
     __tablename__ = "code_patterns"
 
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[uuid_lib.UUID] = mapped_column(
+        UUID(),
         primary_key=True,
-        default=uuid4,
-        server_default=text("gen_random_uuid()")
+        default=uuid4
     )
 
     # Pattern identification
@@ -110,7 +153,7 @@ class CodePattern(Base):
 
     # Usage statistics
     usage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    files_using: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    files_using: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
     user_preference_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
     # Metadata
@@ -118,21 +161,19 @@ class CodePattern(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        server_default=text("NOW()")
+        default=datetime.utcnow
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         default=datetime.utcnow,
-        server_default=text("NOW()"),
         onupdate=datetime.utcnow
     )
 
     __table_args__ = (
-        Index("idx_pattern_type", "pattern_type"),
-        Index("idx_project_id", "project_id"),
-        Index("idx_usage_count", "usage_count"),
+        Index("idx_code_patterns_pattern_type", "pattern_type"),
+        Index("idx_code_patterns_project_id", "project_id"),
+        Index("idx_code_patterns_usage_count", "usage_count"),
     )
 
     def __repr__(self) -> str:
@@ -148,11 +189,10 @@ class Solution(Base):
 
     __tablename__ = "solutions"
 
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[uuid_lib.UUID] = mapped_column(
+        UUID(),
         primary_key=True,
-        default=uuid4,
-        server_default=text("gen_random_uuid()")
+        default=uuid4
     )
 
     # Problem description
@@ -163,7 +203,7 @@ class Solution(Base):
     # Solution
     solution_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     solution_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    files_affected: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    files_affected: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
 
     # Metrics
     success_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
@@ -171,7 +211,7 @@ class Solution(Base):
     avg_resolution_time_sec: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Clustering
-    similar_problems: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    similar_problems: Mapped[Optional[dict]] = mapped_column(JSONType(), nullable=True)
     cluster_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
 
     # Metadata
@@ -180,22 +220,20 @@ class Solution(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        server_default=text("NOW()")
+        default=datetime.utcnow
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         default=datetime.utcnow,
-        server_default=text("NOW()"),
         onupdate=datetime.utcnow
     )
 
     __table_args__ = (
-        Index("idx_success_rate", "success_rate"),
-        Index("idx_problem_type", "problem_type"),
-        Index("idx_cluster_id", "cluster_id"),
-        Index("idx_project_id", "project_id"),
+        Index("idx_solutions_success_rate", "success_rate"),
+        Index("idx_solutions_problem_type", "problem_type"),
+        Index("idx_solutions_cluster_id", "cluster_id"),
+        Index("idx_solutions_project_id", "project_id"),
     )
 
     def __repr__(self) -> str:
@@ -215,14 +253,14 @@ class UserPreference(Base):
 
     # Code style preferences
     code_style: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSONType(),
         nullable=True,
         comment="Indentation, naming conventions, comment style, etc."
     )
 
     # Library preferences
     preferred_libraries: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSONType(),
         nullable=True,
         comment="Preferred libraries by category (e.g., testing, http, async)"
     )
@@ -241,14 +279,14 @@ class UserPreference(Base):
 
     # Language-specific preferences
     language_preferences: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSONType(),
         nullable=True,
         comment="Preferences by programming language"
     )
 
     # Project-specific overrides
     project_preferences: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSONType(),
         nullable=True,
         comment="Project-specific preference overrides"
     )
@@ -270,7 +308,6 @@ class UserPreference(Base):
         DateTime,
         nullable=False,
         default=datetime.utcnow,
-        server_default=text("NOW()"),
         onupdate=datetime.utcnow
     )
 

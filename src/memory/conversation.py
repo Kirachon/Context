@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from src.memory.database import get_db_manager
 from src.memory.models import Conversation
-from src.vector_db.qdrant_client import get_client as get_qdrant_client
+from src.vector_db.qdrant_client import get_qdrant_client
 
 
 class ConversationStore:
