@@ -48,6 +48,28 @@ services:
     networks:
       - context-network
 
+  # TimescaleDB - Time-series metrics storage for analytics
+  timescale:
+    image: timescale/timescaledb:latest-pg15
+    container_name: context-timescale
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TIMESCALE_DB:-context_analytics}
+      POSTGRES_USER: ${TIMESCALE_USER:-context}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-password}
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./timescale/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U context -d context_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - context-network
+
   # Redis - Caching and session management
   redis:
     image: redis:7.2-alpine
@@ -99,6 +121,7 @@ services:
       context: ../../
       dockerfile: deployment/docker/Dockerfile.dev
     container_name: context-server
+    image: context-server:ci
     restart: unless-stopped  # Auto-restart on Docker Desktop startup
     ports:
       - "8000:8000"
@@ -120,44 +143,55 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - QDRANT_HOST=${QDRANT_HOST}
-      - QDRANT_PORT=${QDRANT_PORT}
-      - QDRANT_COLLECTION=${QDRANT_COLLECTION}
-      - QDRANT_VECTOR_SIZE=${QDRANT_VECTOR_SIZE}
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - ENVIRONMENT=${ENVIRONMENT}
-      - MCP_ENABLED=${MCP_ENABLED}
-      - MCP_SERVER_NAME=${MCP_SERVER_NAME}
+      - POSTGRES_ENABLED=${POSTGRES_ENABLED:-false}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://context:password@postgres:5432/context_dev}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - QDRANT_HOST=${QDRANT_HOST:-qdrant}
+      - QDRANT_PORT=${QDRANT_PORT:-6333}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-context_vectors}
+      - QDRANT_VECTOR_SIZE=${QDRANT_VECTOR_SIZE:-384}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - MCP_ENABLED=${MCP_ENABLED:-true}
+      - MCP_SERVER_NAME=${MCP_SERVER_NAME:-Context}
       - MCP_SERVER_VERSION=${MCP_SERVER_VERSION:-0.1.0}
-      - API_AUTH_ENABLED=${API_AUTH_ENABLED}
-      - API_AUTH_SCHEME=${API_AUTH_SCHEME}
-      - API_KEY=${API_KEY}
-      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}
-      - RATE_LIMIT_REQUESTS_PER_MINUTE=${RATE_LIMIT_REQUESTS_PER_MINUTE}
-      - EMBEDDINGS_PROVIDER=${EMBEDDINGS_PROVIDER}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - GOOGLE_EMBEDDING_MODEL=${GOOGLE_EMBEDDING_MODEL}
-      - RATE_LIMIT_KEY=${RATE_LIMIT_KEY}
-      - CONVERSATION_STATE_ENABLED=${CONVERSATION_STATE_ENABLED}
-      - CONVERSATION_MAX_CONVERSATIONS=${CONVERSATION_MAX_CONVERSATIONS}
-      - CONVERSATION_MAX_MESSAGES_PER_CONVERSATION=${CONVERSATION_MAX_MESSAGES_PER_CONVERSATION}
-      - CONVERSATION_TTL_SECONDS=${CONVERSATION_TTL_SECONDS}
+      - API_AUTH_ENABLED=${API_AUTH_ENABLED:-false}
+      - API_AUTH_SCHEME=${API_AUTH_SCHEME:-none}
+      - API_KEY=${API_KEY:-}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-false}
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=${RATE_LIMIT_REQUESTS_PER_MINUTE:-60}
+      - EMBEDDINGS_PROVIDER=${EMBEDDINGS_PROVIDER:-sentence-transformers}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_EMBEDDING_MODEL=${GOOGLE_EMBEDDING_MODEL:-text-embedding-004}
+      - RATE_LIMIT_KEY=${RATE_LIMIT_KEY:-ip}
+      - CONVERSATION_STATE_ENABLED=${CONVERSATION_STATE_ENABLED:-true}
+      - CONVERSATION_MAX_CONVERSATIONS=${CONVERSATION_MAX_CONVERSATIONS:-1000}
+      - CONVERSATION_MAX_MESSAGES_PER_CONVERSATION=${CONVERSATION_MAX_MESSAGES_PER_CONVERSATION:-100}
+      - CONVERSATION_TTL_SECONDS=${CONVERSATION_TTL_SECONDS:-3600}
       - CLAUDE_PROJECT_DIR=/app/workspace
       - DEBUG=${DEBUG:-true}
+      - FAST_STARTUP=${FAST_STARTUP:-false}
+
+      # Feature flags (allow CI to toggle via env)
+      - ENABLE_NLP_ANALYSIS=${ENABLE_NLP_ANALYSIS:-false}
+      - ENABLE_DEPLOYMENT_INTEGRATIONS=${ENABLE_DEPLOYMENT_INTEGRATIONS:-false}
+      - ENABLE_QUERY_REFINEMENT=${ENABLE_QUERY_REFINEMENT:-false}
+      - ENABLE_CONVERSATION_TRACKING=${ENABLE_CONVERSATION_TRACKING:-false}
+      - ENABLE_PERFORMANCE_PROFILING=${ENABLE_PERFORMANCE_PROFILING:-false}
+      - ENABLE_SECURITY_SCANNING=${ENABLE_SECURITY_SCANNING:-false}
+      - ENABLE_REALTIME_MONITORING=${ENABLE_REALTIME_MONITORING:-false}
+      - ENABLE_CODE_GENERATION=${ENABLE_CODE_GENERATION:-false}
+      - ENABLE_PREDICTIVE_CACHING=${ENABLE_PREDICTIVE_CACHING:-false}
+      - ENABLE_CACHE_WARMING=${ENABLE_CACHE_WARMING:-false}
     depends_on:
       qdrant:
         condition: service_healthy
-      # PostgreSQL and Redis are optional - server works in vector-only mode
       redis:
         condition: service_healthy
-        required: false
-      postgres:
-        condition: service_healthy
-        required: false
+      # PostgreSQL is optional - server works in vector-only mode when POSTGRES_ENABLED=false
+      # postgres dependency removed as it's under a profile and only started explicitly
     healthcheck:
       test: ["CMD-SHELL", "curl -f -X POST http://localhost:8000/ -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":1,\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"healthcheck\",\"version\":\"1.0\"}}}' || exit 1"]
       interval: 30s
@@ -229,6 +263,8 @@ volumes:
   qdrant_data:
     driver: local
   postgres_data:
+    driver: local
+  timescale_data:
     driver: local
   redis_data:
     driver: local

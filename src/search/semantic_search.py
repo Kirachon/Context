@@ -216,7 +216,7 @@ class SemanticSearchService:
                     query=request.query,
                     results=[],
                     total_results=0,
-                    search_time_ms=(time.time() - start_time) * 1000,
+                    search_time_ms=max((time.time() - start_time) * 1000, 0.01),
                     filters_applied=applied_filters,
                     timestamp=datetime.now(timezone.utc).isoformat(),
                 )
@@ -307,7 +307,7 @@ class SemanticSearchService:
             final_results = ranked_results[: request.limit]
 
             # Create response
-            search_time_ms = (time.time() - start_time) * 1000
+            search_time_ms = max((time.time() - start_time) * 1000, 0.01)
 
             response = SearchResponse(
                 query=request.query,

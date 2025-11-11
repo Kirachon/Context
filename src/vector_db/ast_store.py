@@ -262,10 +262,11 @@ class ASTVectorStore:
                     search_text=search_text,
                 )
 
-                # Create point
+                # Create point (convert MD5 hex to UUID for Qdrant)
                 point_id = self._generate_symbol_id(parse_result.file_path, symbol)
+                point_uuid = str(uuid.UUID(hex=point_id))
                 point = models.PointStruct(
-                    id=point_id, vector=embedding, payload=payload.to_dict()
+                    id=point_uuid, vector=embedding, payload=payload.to_dict()
                 )
                 points.append(point)
 
@@ -330,10 +331,11 @@ class ASTVectorStore:
                     search_text=search_text,
                 )
 
-                # Create point
+                # Create point (convert MD5 hex to UUID for Qdrant)
                 point_id = self._generate_class_id(parse_result.file_path, class_info)
+                point_uuid = str(uuid.UUID(hex=point_id))
                 point = models.PointStruct(
-                    id=point_id, vector=embedding, payload=payload.to_dict()
+                    id=point_uuid, vector=embedding, payload=payload.to_dict()
                 )
                 points.append(point)
 
@@ -392,10 +394,11 @@ class ASTVectorStore:
                     search_text=search_text,
                 )
 
-                # Create point
+                # Create point (convert MD5 hex to UUID for Qdrant)
                 point_id = self._generate_import_id(parse_result.file_path, import_info)
+                point_uuid = str(uuid.UUID(hex=point_id))
                 point = models.PointStruct(
-                    id=point_id, vector=embedding, payload=payload.to_dict()
+                    id=point_uuid, vector=embedding, payload=payload.to_dict()
                 )
                 points.append(point)
 
@@ -545,33 +548,27 @@ class ASTVectorStore:
 
     def _generate_symbol_id(self, file_path: Path, symbol: SymbolInfo) -> str:
         """
-        Generate unique UUID for symbol.
+        Generate deterministic 32-character ID for symbol (MD5 hex string).
 
-        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same symbol.
-        This ensures Qdrant compatibility (requires UUID or unsigned integer as point ID).
+        Tests and some clients expect 32-char IDs. For Qdrant compatibility, we
+        convert this hex string to a proper UUID at upsert time.
         """
         content = f"{file_path}:{symbol.name}:{symbol.type}:{symbol.line_start}"
-        return str(uuid.uuid5(AST_NAMESPACE, content))
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     def _generate_class_id(self, file_path: Path, class_info: ClassInfo) -> str:
         """
-        Generate unique UUID for class.
-
-        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same class.
-        This ensures Qdrant compatibility (requires UUID or unsigned integer as point ID).
+        Generate deterministic 32-character ID for class (MD5 hex string).
         """
         content = f"{file_path}:{class_info.name}:class:{class_info.line_start}"
-        return str(uuid.uuid5(AST_NAMESPACE, content))
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     def _generate_import_id(self, file_path: Path, import_info: ImportInfo) -> str:
         """
-        Generate unique UUID for import.
-
-        Uses UUID v5 (SHA-1 hash) to create a consistent UUID for the same import.
-        This ensures Qdrant compatibility (requires UUID or unsigned integer as point ID).
+        Generate deterministic 32-character ID for import (MD5 hex string).
         """
         content = f"{file_path}:{import_info.module}:{import_info.import_type}:{import_info.line or 0}"
-        return str(uuid.uuid5(AST_NAMESPACE, content))
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     def _calculate_file_hash(self, file_path: Path) -> str:
         """Calculate hash of file content for cache invalidation."""

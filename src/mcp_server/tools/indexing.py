@@ -36,12 +36,18 @@ def register_indexing_tools(mcp: FastMCP):
         """
         Get comprehensive indexing status
 
-        Returns comprehensive information about:
-        - Unique files indexed (actual file count from database)
-        - Total indexing operations performed (may be higher due to re-indexing)
-        - File monitor status
-        - Indexing queue status
-        - Breakdown by component (FileIndexer, ASTIndexer, Queue)
+        In workspace mode:
+        - Returns per-project indexing status with individual file counts
+        - Shows overall workspace statistics
+        - Includes project-specific errors and progress
+
+        In single-project mode:
+        - Returns comprehensive information about:
+          - Unique files indexed (actual file count from database)
+          - Total indexing operations performed (may be higher due to re-indexing)
+          - File monitor status
+          - Indexing queue status
+          - Breakdown by component (FileIndexer, ASTIndexer, Queue)
 
         The key metrics to understand:
         - unique_files_indexed: Actual number of distinct files in the system
@@ -56,6 +62,71 @@ def register_indexing_tools(mcp: FastMCP):
         logger.debug("Gathering indexing status information")
 
         try:
+            # Check if we're in workspace mode
+            from src.mcp_server.http_server import is_workspace_mode, get_workspace_manager
+
+            if is_workspace_mode():
+                # Workspace mode: return per-project status
+                workspace_manager = get_workspace_manager()
+
+                if not workspace_manager:
+                    return {
+                        "error": "Workspace manager not available",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+
+                projects_status = []
+                total_files_indexed = 0
+                total_files = 0
+                total_errors = 0
+
+                for project_id, project in workspace_manager.projects.items():
+                    project_status = {
+                        "id": project.id,
+                        "name": project.name,
+                        "status": project.status.value,
+                        "indexed_files": project.stats.files_indexed,
+                        "total_files": project.stats.total_files,
+                        "errors": project.stats.errors,
+                        "last_indexed": (
+                            project.stats.last_indexed.isoformat()
+                            if project.stats.last_indexed
+                            else None
+                        ),
+                        "indexing_duration_seconds": project.stats.indexing_duration_seconds,
+                        "monitoring_active": (
+                            project.file_monitor.is_running if project.file_monitor else False
+                        ),
+                    }
+                    projects_status.append(project_status)
+
+                    total_files_indexed += project.stats.files_indexed
+                    total_files += project.stats.total_files
+                    total_errors += project.stats.errors
+
+                result = {
+                    "mode": "workspace",
+                    "summary": {
+                        "total_projects": len(workspace_manager.projects),
+                        "total_files_indexed": total_files_indexed,
+                        "total_files": total_files,
+                        "total_errors": total_errors,
+                    },
+                    "projects": projects_status,
+                    "workspace": {
+                        "name": workspace_manager.config.name if workspace_manager.config else "unknown",
+                        "config_path": str(workspace_manager.workspace_path),
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+                logger.info(
+                    f"Workspace indexing status: {len(projects_status)} projects, "
+                    f"{total_files_indexed} files indexed"
+                )
+                return result
+
+            # Single-project mode: return existing implementation
             # Get monitor status
             monitor_status = get_monitor_status()
 
@@ -97,12 +168,15 @@ def register_indexing_tools(mcp: FastMCP):
             )
 
             result = {
+                "mode": "single-project",
                 # PRIMARY METRICS - What users care about
                 "summary": {
                     "unique_files_indexed": unique_files_count,
                     "total_operations": total_operations,
                     "description": f"{unique_files_count} unique files indexed with {total_operations} total operations",
                 },
+                # Back-compat: expose raw FileIndexer stats under 'indexer' key for tests/clients
+                "indexer": indexer_stats,
                 # Detailed breakdown
                 "operations_by_component": {
                     "file_indexer": {

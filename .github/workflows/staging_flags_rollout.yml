@@ -1,0 +1,84 @@
+name: Staging Feature Flags Rollout Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        flag:
+          - ENABLE_DEPLOYMENT_INTEGRATIONS
+          - ENABLE_CONVERSATION_TRACKING
+          - ENABLE_PERFORMANCE_PROFILING
+          - ENABLE_SECURITY_SCANNING
+          - ENABLE_REALTIME_MONITORING
+          - ENABLE_CODE_GENERATION
+          - ENABLE_PREDICTIVE_CACHING
+          - ENABLE_CACHE_WARMING
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      - name: Prepare env for Compose (Linux runner)
+        run: |
+          echo "USERPROFILE=/home/runner" >> $GITHUB_ENV
+          echo "EXTERNAL_PROJECTS_PATH=${GITHUB_WORKSPACE}/.." >> $GITHUB_ENV
+          echo "QDRANT_HOST=qdrant" >> $GITHUB_ENV
+          echo "QDRANT_PORT=6333" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://redis:6379/0" >> $GITHUB_ENV
+          echo "MCP_ENABLED=true" >> $GITHUB_ENV
+          echo "LOG_LEVEL=INFO" >> $GITHUB_ENV
+
+
+      - name: Build context-server image (dev)
+        run: |
+          docker build -f deployment/docker/Dockerfile.dev -t context-server:ci .
+
+      - name: Start dependencies
+        run: |
+          docker compose -f deployment/docker/docker-compose.yml up -d qdrant redis
+          sleep 15
+
+      - name: Start context-server with one flag enabled
+        env:
+          ${{ matrix.flag }}: "true"
+        run: |
+          FAST_STARTUP=true docker compose -f deployment/docker/docker-compose.yml up -d --no-build context-server
+          sleep 10
+
+      - name: Check health
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -H 'Accept: application/json, text/event-stream' http://localhost:8000/ || true)
+            if [ "$code" = "405" ] || [ "$code" = "200" ]; then
+              echo "Server reachable"; break; fi
+            echo "Waiting for server... ($i)"; sleep 5;
+          done
+          code=$(curl -s -o /dev/null -w "%{http_code}" -H 'Accept: application/json, text/event-stream' http://localhost:8000/ || true)
+          if [ "$code" != "405" ] && [ "$code" != "200" ]; then
+            echo "Health check failed with code: $code"
+            docker compose -f deployment/docker/docker-compose.yml logs context-server
+            exit 1
+          fi
+          echo "Server is healthy (HTTP $code)"
+
+      - name: Smoke JSON-RPC initialize
+        run: |
+          curl -sS -X POST http://localhost:8000/ \
+            -H 'Accept: application/json, text/event-stream' \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gha-flags","version":"1.0"}}}' | tee /tmp/init.json
+          grep -q '"jsonrpc"' /tmp/init.json
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f deployment/docker/docker-compose.yml down -v --remove-orphans
+

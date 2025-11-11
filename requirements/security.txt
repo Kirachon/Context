@@ -1,0 +1,9 @@
+# Optional security scanning dependencies (not required for basic checks)
+# Install with: pip install -r requirements/security.txt
+# Safe-by-default: Basic scanners work without these packages
+
+bandit>=1.7.0
+safety>=2.3.0
+semgrep>=1.45.0
+pip-audit>=2.6.0
+

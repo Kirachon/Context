@@ -7,6 +7,16 @@ Pydantic models for search requests and responses.
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
+# Import EnhancedSearchResult for convenience
+# Note: Circular import avoided by lazy import in workspace_search.py
+__all__ = [
+    "SearchRequest",
+    "SearchResult",
+    "SearchResponse",
+    "SearchStats",
+    "SearchError",
+]
+
 
 class SearchRequest(BaseModel):
     """Search request model"""

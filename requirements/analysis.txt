@@ -1,0 +1,7 @@
+# Optional analysis tooling (not auto-installed)
+pylint>=3.0.0
+bandit>=1.7.0
+safety>=2.3.0
+radon>=6.0.0
+vulture>=2.10
+

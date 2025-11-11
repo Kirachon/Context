@@ -1,4 +1,7 @@
 groups:
+  # ============================================================
+  # SERVER AVAILABILITY ALERTS
+  # ============================================================
   - name: context.server
     rules:
       - alert: ContextServerDown
@@ -9,4 +12,164 @@ groups:
         annotations:
           summary: "Context server is down"
           description: "No metrics scraped from context-server for 1 minute."
+
+  # ============================================================
+  # SEARCH PERFORMANCE ALERTS
+  # ============================================================
+  - name: context.search_performance
+    rules:
+      - alert: HighSearchLatency
+        expr: histogram_quantile(0.95, rate(search_latency_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High search latency detected"
+          description: "Search latency (p95) is {{ $value }}s, exceeding 500ms threshold."
+
+      - alert: CriticalSearchLatency
+        expr: histogram_quantile(0.99, rate(search_latency_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical search latency detected"
+          description: "Search latency (p99) is {{ $value }}s, exceeding 2 second threshold."
+
+      - alert: LowCacheHitRate
+        expr: sum(rate(cache_hits_total[5m])) / (sum(rate(cache_hits_total[5m])) + rate(cache_misses_total[5m])) < 0.4
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}, below 40% threshold."
+
+      - alert: HighSearchErrorRate
+        expr: sum(rate(search_requests_total{status="error"}[5m])) / sum(rate(search_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: error
+        annotations:
+          summary: "High search error rate"
+          description: "Search error rate is {{ $value | humanizePercentage }}, exceeding 5% threshold."
+
+  # ============================================================
+  # INDEX PERFORMANCE ALERTS
+  # ============================================================
+  - name: context.index_performance
+    rules:
+      - alert: HighIndexErrorRate
+        expr: sum(rate(index_errors_total[5m])) / (sum(rate(files_indexed_total[5m])) + sum(rate(index_errors_total[5m]))) > 0.05
+        for: 10m
+        labels:
+          severity: error
+        annotations:
+          summary: "High indexing error rate"
+          description: "Index error rate is {{ $value | humanizePercentage }}, exceeding 5% threshold."
+
+      - alert: LargeIndexQueue
+        expr: sum(index_queue_size) > 10000
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Large indexing queue"
+          description: "Index queue size is {{ $value }}, exceeding 10,000 files."
+
+      - alert: LowIndexThroughput
+        expr: sum(index_throughput_files_per_second) < 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low indexing throughput"
+          description: "Indexing throughput is {{ $value }} files/sec, below 1 file/sec threshold."
+
+  # ============================================================
+  # SYSTEM RESOURCE ALERTS
+  # ============================================================
+  - name: context.system_resources
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / (1024 * 1024 * 1024) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize }}GB, exceeding 2GB threshold."
+
+      - alert: CriticalMemoryUsage
+        expr: process_resident_memory_bytes / (1024 * 1024 * 1024) > 4
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value | humanize }}GB, exceeding 4GB threshold."
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanizePercentage }}, exceeding 85% threshold."
+
+      - alert: HighFileDescriptorUsage
+        expr: process_open_fds / process_max_fds > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High file descriptor usage"
+          description: "File descriptor usage is {{ $value | humanizePercentage }}, exceeding 80% of limit."
+
+  # ============================================================
+  # USAGE & ACTIVITY ALERTS
+  # ============================================================
+  - name: context.usage
+    rules:
+      - alert: NoActiveUsers
+        expr: active_users{time_window="1h"} == 0
+        for: 2h
+        labels:
+          severity: info
+        annotations:
+          summary: "No active users"
+          description: "No users have been active in the last hour for 2 hours."
+
+      - alert: SuddenTrafficSpike
+        expr: rate(search_requests_total[5m]) > 5 * avg_over_time(rate(search_requests_total[5m])[1h:5m])
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sudden traffic spike detected"
+          description: "Search request rate is {{ $value }} req/s, 5x higher than 1-hour average."
+
+  # ============================================================
+  # CODE HEALTH ALERTS
+  # ============================================================
+  - name: context.code_health
+    rules:
+      - alert: HighDeadCodePercentage
+        expr: avg(dead_code_percentage) > 60
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "High dead code percentage"
+          description: "Dead code percentage is {{ $value | humanizePercentage }}, exceeding 60% threshold."
+
+      - alert: LowIndexCoverage
+        expr: avg(index_coverage_percentage) < 60
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low index coverage"
+          description: "Index coverage is {{ $value | humanizePercentage }}, below 60% threshold."
 

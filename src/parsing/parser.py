@@ -195,9 +195,9 @@ class CodeParser:
             symbols, classes, imports, relationships = self._extract_symbols(
                 ast_root, language
             )
-            symbol_extraction_time_ms = (time.time() - symbol_start_time) * 1000
+            symbol_extraction_time_ms = max((time.time() - symbol_start_time) * 1000, 0.01)
 
-            parse_time_ms = (time.time() - start_time) * 1000
+            parse_time_ms = max((time.time() - start_time) * 1000, 0.01)
             logger.debug(
                 f"Successfully parsed {file_path} ({language.value}) in {parse_time_ms:.2f}ms"
             )

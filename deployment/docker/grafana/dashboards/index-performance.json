@@ -1,0 +1,272 @@
+{
+  "id": null,
+  "uid": "index-performance",
+  "title": "Context - Index Performance",
+  "tags": ["context", "indexing", "performance"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Index Throughput",
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(rate(files_indexed_total[5m]))",
+          "refId": "A",
+          "legendFormat": "files/sec"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 1, "color": "yellow"},
+              {"value": 5, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Queue Size",
+      "id": 2,
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(index_queue_size)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 1000, "color": "yellow"},
+              {"value": 10000, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error Rate",
+      "id": 3,
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(rate(index_errors_total[5m])) / sum(rate(files_indexed_total[5m]) + rate(index_errors_total[5m])) * 100",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 1, "color": "yellow"},
+              {"value": 5, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Files Indexed (1h)",
+      "id": 4,
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(increase(files_indexed_total[1h]))",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Index Throughput Over Time",
+      "id": 5,
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(index_throughput_files_per_second) by (project_id)",
+          "refId": "A",
+          "legendFormat": "{{project_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Index Queue Size",
+      "id": 6,
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "index_queue_size",
+          "refId": "A",
+          "legendFormat": "{{project_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Index Duration by File Type",
+      "id": 7,
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(index_duration_seconds_bucket[5m]))",
+          "refId": "A",
+          "legendFormat": "{{file_type}} (p95)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Files by Type (1h)",
+      "id": 8,
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(increase(files_indexed_total[1h])) by (file_type)",
+          "refId": "A",
+          "legendFormat": "{{file_type}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        },
+        "pieType": "donut"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Index Errors by Type",
+      "id": 9,
+      "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(index_errors_total[5m])) by (error_type)",
+          "refId": "A",
+          "legendFormat": "{{error_type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Index Statistics by Project",
+      "id": 10,
+      "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(files_indexed_total[1h])) by (project_id)",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Value": "Files/Hour"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

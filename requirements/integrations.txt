@@ -1,0 +1,9 @@
+# Optional integration dependencies (install as needed)
+# These are NOT installed automatically by the project.
+# Use: pip install -r requirements/integrations.txt
+
+vercel>=1.0.0
+render-python>=0.1.0
+railway>=0.1.0
+supabase>=2.0.0
+

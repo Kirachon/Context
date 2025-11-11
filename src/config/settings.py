@@ -237,6 +237,105 @@ class Settings(BaseSettings):
         description="Show progress bar during embedding generation"
     )
 
+    # NLP / Prompt analysis (feature-flagged)
+    enable_nlp_analysis: bool = Field(
+        default=False,
+        description="Enable spaCy-based NLP analysis in PromptAnalyzer (additive, non-breaking)"
+    )
+    nlp_model: str = Field(
+        default="en_core_web_sm",
+        description="spaCy model to load for NLP analysis"
+    )
+    nlp_max_doc_length: int = Field(
+        default=20000,
+        ge=1000,
+        description="Maximum characters to process with NLP to protect performance"
+    )
+
+    # Deployment integrations (feature-flagged)
+    enable_deployment_integrations: bool = Field(
+        default=False,
+        description="Enable MCP tools for Vercel/Render/Railway/Supabase integrations"
+    )
+    # Query refinement & conversation tracking (feature-flagged)
+    enable_query_refinement: bool = Field(
+        default=False,
+        description="Enable query refinement MCP tools"
+    )
+    enable_conversation_tracking: bool = Field(
+        default=False,
+        description="Enable conversation-aware query enhancement/refinement features"
+    )
+
+    # Performance profiling (feature-flagged)
+    enable_performance_profiling: bool = Field(
+        default=False,
+        description="Enable lightweight performance profiling on selected tools"
+    )
+    profiling_sample_rate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Probability (0-1) to sample a profiling run"
+    )
+    profiling_store_results: bool = Field(
+        default=False,
+        description="If true, store profiling results in memory (or DB when enabled)"
+    )
+
+    # Security scanning (feature-flagged)
+    enable_security_scanning: bool = Field(
+        default=False,
+        description="Enable lightweight security scanning tools"
+    )
+    security_scan_on_index: bool = Field(
+        default=False,
+        description="Run security scans during indexing (async). Off by default"
+    )
+    security_severity_threshold: str = Field(
+        default="medium",
+        description="Minimum severity to include in reports: low|medium|high"
+    )
+
+    # Real-time monitoring (feature-flagged)
+    enable_realtime_monitoring: bool = Field(
+        default=False,
+        description="Enable lightweight real-time code quality/perf/security analysis during indexing"
+    )
+    monitoring_analysis_depth: str = Field(
+        default="quick",
+        description="Analysis depth: 'quick' (regex/heuristics) or 'full' (external linters when available)"
+    )
+    monitoring_async: bool = Field(
+        default=True,
+        description="Run monitoring callbacks asynchronously to avoid blocking indexing"
+    )
+
+    # Code generation (feature-flagged)
+    enable_code_generation: bool = Field(
+        default=False,
+        description="Enable AI-assisted code/test/doc generation tools (safe, additive)"
+    )
+    code_generation_provider: str = Field(
+        default="local",
+        description="Provider for code generation: 'local' (heuristic) or 'ollama'"
+    )
+    code_generation_model: str = Field(
+        default="codellama:7b",
+        description="Model name when using Ollama provider"
+    )
+
+    # Advanced caching (feature-flagged)
+    enable_predictive_caching: bool = Field(
+        default=False,
+        description="Enable predictive embedding caching based on recent query patterns",
+    )
+    enable_cache_warming: bool = Field(
+        default=False,
+        description="Warm a small set of common texts on startup to reduce first-hit latency",
+    )
+
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parent.parent.parent / ".env"),
         env_file_encoding="utf-8",

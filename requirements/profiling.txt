@@ -1,0 +1,8 @@
+# Optional profiling dependencies (not required for basic functionality)
+# Install with: pip install -r requirements/profiling.txt
+# Safe-by-default: All profiling features also work without these packages
+
+py-spy>=0.3.14
+memory-profiler>=0.61.0
+line-profiler>=4.1.0
+

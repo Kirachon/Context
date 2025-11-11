@@ -16,6 +16,7 @@
 - 🔗 **Cross-language analysis**: Detect patterns and similarities across different languages
 - 🤖 **MCP integration**: Native support for Claude Code CLI via HTTP transport (stdio also supported)
 - 🔒 **Privacy-first**: Runs completely offline, your code never leaves your machine
+- **✨ NEW: Multi-project workspace support**: Index and search across multiple projects simultaneously
 
 ## 📊 Performance Highlights
 
@@ -29,10 +30,26 @@
 
 ## 🆕 Latest Changes and Fixes
 
+### v2.0.0 - Multi-Project Workspace Support (2025-11-11) 🎉
+
+**Major Features:**
+- **🏢 Workspace Architecture**: Index and search across multiple projects simultaneously (frontend, backend, shared libraries, etc.)
+- **🔗 Project Relationships**: Track dependencies between projects with automatic relationship discovery
+- **🔍 Cross-Project Search**: Search with relationship-aware ranking (dependencies rank higher)
+- **📊 Per-Project Collections**: Isolated vector storage for each project (no cross-contamination)
+- **⚡ Parallel Indexing**: Index multiple projects concurrently (5x speedup)
+- **🛠️ CLI Commands**: 8 new commands for workspace management (`context workspace init`, `add-project`, `list`, `index`, etc.)
+- **📦 MCP Tools**: 7 new/updated MCP tools for workspace support
+- **🔄 Migration Script**: Automated v1 → v2 migration with rollback support
+
+See [WORKSPACE_QUICKSTART.md](WORKSPACE_QUICKSTART.md) for details.
+
+### Previous Changes
+
 - HTTP transport (Docker) binding fix: server now binds to `0.0.0.0` inside the container; access via `http://localhost:8000/`. MCP HTTP endpoint is at path `/`.
 - Qdrant collection stats compatibility: robust parsing across API versions and single/multi‑vector configurations.
 - AST vector dimension auto‑migration: AST collections are automatically recreated when embedding dimensions change (e.g., 384 → 768); data is repopulated during indexing.
-- Verification: Claude CLI shows “Connected”; Docker containers healthy; 52/53 MCP tools passing (one prompt generation tool intentionally skipped).
+- Verification: Claude CLI shows "Connected"; Docker containers healthy; 52/53 MCP tools passing (one prompt generation tool intentionally skipped).
 ## ✅ Verification Status and Testing Matrix
 
 Verification Status: 52/53 tools passing (1 skipped: prompt_generate)
@@ -61,11 +78,13 @@ Note: All tests were executed via the MCP HTTP transport against the Docker depl
 ### Core Components
 
 - **MCP Server**: FastMCP-based server implementing Model Context Protocol
+- **Workspace Manager**: Multi-project orchestration with relationship tracking (NEW v2.0)
 - **Vector Database**: Qdrant for vector embeddings storage (768d in Docker; 384d in local dev)
 - **Embedding Model**: Google text-embedding-004 (768d) in Docker; sentence-transformers all-MiniLM-L6-v2 (384d) for local dev
 - **Cache Layer**: Redis for AST and query result caching
 - **AST Parser**: Tree-sitter for multi-language syntax analysis
 - **Metadata Store**: PostgreSQL (optional, for file indexing history)
+- **Relationship Graph**: NetworkX-based dependency and similarity tracking (NEW v2.0)
 
 ### Technology Stack
 
@@ -1101,6 +1120,20 @@ def register_my_tools(mcp: FastMCP):
 ### Architecture & Technical Docs
 - **[Architecture Documentation](docs/architecture-Context-2025-10-31.md)** - System architecture
 - **[Technical Specifications](docs/tech-spec-Context-2025-10-31.md)** - Technical details
+
+
+### Feature Guides
+- [Phase 1 Features and Usage](docs/features/phase1.md)
+- [Phase 2 Features and Usage](docs/features/phase2.md)
+- [Phase 3 Features and Usage](docs/features/phase3.md)
+
+### Performance Docs
+- [Phase 1 Performance Benchmarks](docs/performance/phase1.md)
+
+### CI Workflows (Smoke/Flags)
+- Staging Compose Smoke: .github/workflows/staging_compose_smoke.yml (runs on push/PR)
+- Feature Flags Rollout Smoke: .github/workflows/staging_flags_rollout.yml (workflow_dispatch)
+- Production Smoke: .github/workflows/production_smoke.yml (workflow_dispatch, protected env)
 
 ### Troubleshooting Guides
 - **[PostgreSQL Analysis](POSTGRESQL_ANALYSIS_AND_RECOMMENDATION.md)** - PostgreSQL setup and analysis

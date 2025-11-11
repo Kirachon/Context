@@ -1,0 +1,28 @@
+name: Security Scan
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install scanners
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety semgrep
+      - name: Bandit (Python security linter)
+        run: bandit -q -r src || true
+      - name: Safety (dependency vulnerabilities)
+        run: |
+          pip install -r requirements/base.txt || true
+          safety check --full-report || true
+      - name: Semgrep (code scanning)
+        run: semgrep --config p/ci --error --timeout 120 || true
+

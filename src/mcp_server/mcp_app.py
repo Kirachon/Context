@@ -158,6 +158,9 @@ class MCPServer:
 
         logger.info("Registering MCP tool endpoints")
 
+        # Resolve settings at call time to ensure latest flags under pytest/monkeypatch
+        from src.config.settings import settings as cfg
+
         # Import and register essential tools for Claude Code CLI
         from src.mcp_server.tools.health import register_health_tools
         from src.mcp_server.tools.capabilities import register_capability_tools
@@ -176,6 +179,20 @@ class MCPServer:
         )
         from src.mcp_server.tools.prompt_tools import register_prompt_tools
         from src.mcp_server.tools.context_aware_prompt import register_context_aware_tools
+        # Optional: workspace tools (only in workspace mode)
+        from src.mcp_server.tools.workspace import register_workspace_tools
+        # Optional: deployment integrations (feature-flagged)
+        from src.mcp_server.tools.deployment_integrations import register_deployment_tools
+
+        # Optional: performance profiling tools (feature-flagged)
+        from src.mcp_server.tools.performance_tools import register_performance_tools
+        # Optional: security scanning tools (feature-flagged)
+        from src.mcp_server.tools.security_scanning import register_security_scanning_tools
+        # Optional: code monitoring tools (feature-flagged)
+        from src.mcp_server.tools.code_monitoring import register_code_monitoring_tools
+        # Optional: code generation tools (feature-flagged)
+        from src.mcp_server.tools.code_generation import register_code_generation_tools
+
 
         # Disabled for personal use - uncomment if needed:
         # from src.mcp_server.tools.cache_management import register_cache_management_tools
@@ -200,6 +217,34 @@ class MCPServer:
         register_indexing_optimization_tools(self.mcp)
         register_prompt_tools(self.mcp)
         register_context_aware_tools(self.mcp)
+
+        # Conditionally register workspace tools (only in workspace mode)
+        from src.mcp_server.http_server import is_workspace_mode
+        if is_workspace_mode():
+            logger.info("Workspace mode detected - registering workspace tools")
+            register_workspace_tools(self.mcp)
+        else:
+            logger.info("Single-project mode - skipping workspace tools")
+
+        # Conditionally register performance profiling tools
+        if getattr(cfg, "enable_performance_profiling", False):
+            register_performance_tools(self.mcp)
+
+        # Conditionally register security scanning tools
+        if getattr(cfg, "enable_security_scanning", False):
+            register_security_scanning_tools(self.mcp)
+
+        # Conditionally register deployment integrations
+        if getattr(cfg, "enable_deployment_integrations", False):
+            register_deployment_tools(self.mcp)
+
+        # Conditionally register real-time code monitoring tools
+        if getattr(cfg, "enable_realtime_monitoring", False):
+            register_code_monitoring_tools(self.mcp)
+
+        # Conditionally register code generation tools
+        if getattr(cfg, "enable_code_generation", False):
+            register_code_generation_tools(self.mcp)
 
         # Disabled for personal use - uncomment if needed:
         # register_cache_management_tools(self.mcp)
